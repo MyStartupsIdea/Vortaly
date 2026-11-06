@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "freellmapi-proxy": {
+      "source": "reason-machines/trending-skills",
+      "sourceType": "github",
+      "skillPath": "skills/freellmapi-proxy/SKILL.md",
+      "computedHash": "55602e05a728844b524acd690b889489f8e2b9a411ab8882b532a52841c8cb2e"
+    }
+  }
+}
