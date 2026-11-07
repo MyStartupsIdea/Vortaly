@@ -64,10 +64,8 @@ export interface Booking {
   /** How the customer paid, once a provider has confirmed it. */
   paymentProvider?: PaymentProvider;
   createdAt: string;
-}
-
-export type PaymentProvider = "click" | "payme";
-
+}export type PaymentProvider = "click" | "payme";
+export type BookingProvider = PaymentProvider;
 export interface PaymentIntent {
   provider: PaymentProvider;
   bookingId: string;

@@ -1,4 +1,4 @@
-import type { Booking, BookingStatus } from "@/lib/types";
+import type { Booking, BookingProvider, BookingStatus } from "@/lib/types";
 import { getSupabaseServer } from "./server";
 import { isNetworkError } from "./salons";
 
@@ -27,6 +27,7 @@ interface BookingRow {
   customer_phone: string;
   telegram_user_id: number | null;
   created_at: string;
+  payment_provider: string | null;
 }
 
 function toRow(booking: Booking): BookingRow {
@@ -44,6 +45,7 @@ function toRow(booking: Booking): BookingRow {
     customer_phone: booking.customerPhone,
     telegram_user_id: booking.telegramUserId ?? null,
     created_at: booking.createdAt,
+    payment_provider: booking.paymentProvider ?? null,
   };
 }
 
@@ -62,6 +64,7 @@ function fromRow(row: BookingRow): Booking {
     customerPhone: row.customer_phone,
     telegramUserId: row.telegram_user_id ?? undefined,
     createdAt: row.created_at,
+    paymentProvider: row.payment_provider as BookingProvider | undefined,
   };
 }
 
@@ -90,7 +93,18 @@ export async function createBooking(booking: Booking): Promise<PersistResult> {
       .single<BookingRow>();
 
     if (error) {
-      // A missing table is the expected state before the schema is applied.
+      // A missing table or constraint violation is the expected state before
+      // the schema is applied. An HTTP 5xx from Supabase itself is an
+      // infrastructure fault, not a validation failure.
+      const code = typeof error.code === "string" ? error.code : undefined;
+      if (code && /^5\d{2}$/.test(code)) {
+        return {
+          booking,
+          persisted: false,
+          warning: "Supabase temporarily unavailable",
+        };
+      }
+
       return { booking, persisted: false, warning: error.message };
     }
     return { booking: fromRow(data), persisted: true };
@@ -145,31 +159,74 @@ export async function listBookings(
   }
 }
 
+// Returns one of three outcomes so callers can distinguish "row not found or
+// wrong tenant" from "infrastructure fault".
+export type StatusUpdateOutcome =
+  | { updated: true }
+  | { updated: false; reason: "not_found_or_denied" }
+  | { updated: false; reason: "degraded"; warning: string };
+
 export async function setBookingStatus(
   id: string,
   status: BookingStatus,
   salonId: string,
-): Promise<boolean> {
+): Promise<StatusUpdateOutcome> {
   const db = getSupabaseServer();
-  if (!db) return false;
+  if (!db) {
+    return {
+      updated: false,
+      reason: "degraded",
+      warning: "Supabase is not configured — status could not be changed.",
+    };
+  }
 
   try {
     // Tenant isolation: only update the booking when both the id and the
     // salon_id match. Without this, any caller that knows a booking uuid could
     // flip its status for any salon on the platform.
-    const { error } = await db
+    const { error, data } = await db
       .from(TABLE)
       .update({ status })
       .eq("id", id)
-      .eq("salon_id", salonId);
-    return !error;
+      .eq("salon_id", salonId)
+      .select()
+      .single();
+
+    if (error) {
+      const code = typeof error.code === "string" ? error.code : undefined;
+      if (code && /^5\d{2}$/.test(code)) {
+        return {
+          updated: false,
+          reason: "degraded",
+          warning: "Supabase temporarily unavailable",
+        };
+      }
+      if (!data) {
+        return { updated: false, reason: "not_found_or_denied" };
+      }
+      // no rows matched, or a constraint violation — treat as not found for
+      // the caller. A wrong tenant guessing a booking id cannot learn whether
+      // the booking exists for another tenant.
+      return { updated: false, reason: "not_found_or_denied" };
+    }
+  return data ? { updated: true } : { updated: false, reason: "not_found_or_denied" };
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (isNetworkError(err)) {
-      console.warn("[bookings.setBookingStatus] Supabase network error, status not changed");
-      return false;
+      console.warn(
+        "[bookings.setBookingStatus] Supabase network error, status not changed",
+      );
+      return {
+        updated: false,
+        reason: "degraded",
+        warning: "Supabase unavailable — status could not be changed.",
+      };
     }
     console.error("[bookings.setBookingStatus] unexpected error:", message);
-    return false;
+    return {
+      updated: false,
+      reason: "degraded",
+      warning: "Failed to change status: " + message,
+    };
   }
 }

@@ -76,14 +76,9 @@ export const TEMPLATES: Template[] = [
   },
 ];
 
-/* -------------------------------------------------------------- pipeline --- */
-
-export type StageId = "schema" | "domain" | "ui" | "deploy";
-
+/* -------------------------------------------------------------- pipeline --- */export type StageId = "schema" | "domain" | "ui" | "deploy";
 export const STAGE_ORDER: StageId[] = ["schema", "domain", "ui", "deploy"];
-
 export type LogLevel = "info" | "ok" | "warn";
-
 export interface LogLine {
   stage: StageId;
   level: LogLevel;
@@ -93,4 +88,15 @@ export interface LogLine {
    * stage headings are localised.
    */
   text: string;
+}
+
+/* ----------------------------------------------------------------- slash --- */
+
+/**
+ * Strips the leading `/` of a path segment so route matching stays simple
+ * when values travel between the browser console, the provision stream, and
+ * the platform host. Idempotent — pathStrip(pathStrip(x)) === pathStrip(x).
+ */
+export function pathStrip(value: string): string {
+  return value.startsWith("/") ? value.slice(1) : value;
 }

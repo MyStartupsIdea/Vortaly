@@ -33,8 +33,18 @@ export async function POST(request: Request) {
   if (!/^\+?998\d{9}$/.test((body.customerPhone ?? "").replace(/[\s()-]/g, ""))) {
     return invalid("customerPhone");
   }
-
-  const { sum, minutes } = totalFor(body.serviceIds);
+  if (!body.masterId || typeof body.masterId !== "string" || body.masterId.length < 1) {
+    return invalid("masterId");
+  }
+  if (!body.serviceIds || !Array.isArray(body.serviceIds) || body.serviceIds.length === 0) {
+    return invalid("serviceIds");
+  }
+  if (!body.date || typeof body.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.date)) {
+    return invalid("date");
+  }
+  if (!body.time || typeof body.time !== "string" || !/^\d{2}:\d{2}$/.test(body.time)) {
+    return invalid("time");
+  }    const { sum, minutes } = totalFor(body.serviceIds);
 
   // Multi-tenant: read the resolved tenant from the middleware header.
   // The middleware (middleware.ts) resolves *.uzmini.uz subdomains to a salon_id

@@ -88,19 +88,27 @@ export async function PATCH(
     return NextResponse.json({ error: "booking id is required in the URL" }, { status: 400 });
   }
 
-  const ok = await setBookingStatus(bookingId, wanted as BookingStatus, salonId);
+  const result = await setBookingStatus(bookingId, wanted as BookingStatus, salonId);
 
-  if (!ok) {
-    // setBookingStatus returns false on DB error OR when no row matched the
-    // (id + salon_id) predicate — both are treated as "not found / forbidden"
-    // so a caller can't tell whether the booking exists for another tenant.
+  if (result.updated) {
+    return NextResponse.json({ ok: true, status: wanted });
+  }
+
+  // Distinguish an infrastructure fault from a not-found so callers can retry
+  // instead of assuming the booking does not exist.
+  if ("reason" in result && result.reason === "degraded") {
     return NextResponse.json(
-      { error: "Booking not found or access denied" },
-      { status: 404 },
+      { error: "Booking service temporarily unavailable" },
+      { status: 503 },
     );
   }
 
-  return NextResponse.json({ ok: true, status: wanted });
+  // Not found, or the booking belongs to a different tenant — both are
+  // indistinguishable to the caller on purpose (no cross-tenant existence leak).
+  return NextResponse.json(
+    { error: "Booking not found or access denied" },
+    { status: 404 },
+  );
 }
 
 // GET is not implemented: status should be changed only via a mutation, never

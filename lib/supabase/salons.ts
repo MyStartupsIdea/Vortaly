@@ -42,16 +42,23 @@ export async function findSalonBySlug(slug: string): Promise<SalonRecord | null>
       .eq("id", slug)
       .single<SalonRow>();
 
-    if (error || !data) return null;
-    return toRecord(data);
-  } catch (err) {
+    if (error) {
+      const code = typeof error.code === "string" ? error.code : undefined;
+      if (code && /^5\d{2}$/.test(code)) {
+        console.warn("[salons.findSalonBySlug] Supabase temporarily unavailable");
+        return null;
+      }
+      return null;
+    }
+    if (!data) return null;
+    return toRecord(data);  } catch (err) {
     // Network errors (fetch failed, DNS, timeout) should not crash the
     // platform. Return null so the caller can fall back gracefully.
-    const message = err instanceof Error ? err.message : String(err);
+    const msg = err instanceof Error ? err.message : String(err);
     if (isNetworkError(err)) {
-      console.warn("[salons.findSalonBySlug] Supabase network error, degrading:", message);
+      console.warn("[salons.findSalonBySlug] Supabase network error, degrading:", msg);
     } else {
-      console.error("[salons.findSalonBySlug] unexpected error:", message);
+      console.error("[salons.findSalonBySlug] unexpected error:", msg);
     }
     return null;
   }
@@ -125,12 +132,24 @@ export async function createSalon(input: {
         address_uz: input.addressUz,
         phone: input.phone,
       })
-      .select("id")
-      .single<Pick<SalonRow, "id">>();
+      .select("id").single<Pick<SalonRow, "id">>();
 
-    if (error) {
-      return { slug, id: slug, persisted: false, warning: error.message };
-    }
+      if (error) {
+        // Network failures from the Supabase client surface as thrown errors,
+        // but a missing table / constraint violation surfaces as `error`.
+        // Distinguish infrastructure faults from validation failures.
+        const code = typeof error.code === "string" ? error.code : undefined;
+        if ("code" in error && typeof (error as { code: unknown }).code === "string" && /^5\d{2}$/.test((error as { code: unknown }).code as string)) {
+          return {
+            slug,
+            id: slug,
+            persisted: false,
+            warning: "Supabase temporarily unavailable",
+          };
+        }
+  
+        return { slug, id: slug, persisted: false, warning: "Insert failed on Supabase" };
+      }
 
     return { slug, id: data.id, persisted: true };
   } catch (err) {
@@ -217,6 +236,12 @@ export function validateSlug(slug: unknown): string {
  *  - HTTP 5xx from Supabase (service temporarily unavailable)
  *  - AbortError (request cancelled)
  *
+ * HTTP 5xx responses from the Supabase JS client can surface either as an Error
+ * whose message starts with the HTTP status code (e.g. "503: Service
+ * Unavailable") or as an Error whose `code` field is the numeric status string
+ * (e.g. "503"). Both are treated as infrastructure faults so the platform degrades
+ * instead of surfacing a 5xx-backed crash to callers.
+ *
  * Does NOT treat client errors (4xx from Supabase, e.g. uniqueness conflicts)
  * as network errors — those are intentional responses, not infrastructure faults.
  */
@@ -243,8 +268,15 @@ export function isNetworkError(error: unknown): boolean {
     if (message.includes("econnrefused") || message.includes("connection refused")) return true;
     if (message.includes("network") || message.includes("networkerror")) return true;
 
+    // HTTP 5xx from Supabase itself — the service is temporarily degraded.
+    // Supabase JS can surface the server error either with a leading HTTP status
+    // in the message (e.g. "500: ...") or as the numeric `code` field (e.g.
+    // "500"). Both forms are infrastructure faults, so callers degrade.
+    if (/^5\d{2}/.test(message)) return true;
+    if ("code" in error && typeof (error as { code: unknown }).code === "string" && /^5\d{2}$/.test((error as { code: unknown }).code as string)) return true;
+
     // Supabase JS may throw with a cause chain; check it too.
-    if (error.cause instanceof Error) {
+    if ("cause" in error && error.cause instanceof Error) {
       return isNetworkError(error.cause);
     }
   }

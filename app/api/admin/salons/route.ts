@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSalon, type SalonRecord, isNetworkError } from "@/lib/supabase/salons";
+import { createSalon, type SalonRecord, isNetworkError, validateSlug } from "@/lib/supabase/salons";
 import { getSupabaseServer } from "@/lib/supabase/server";
 
 /**
@@ -31,8 +31,19 @@ export async function GET() {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (error || !data) {
-      return NextResponse.json({ salons: [], warning: error?.message ?? ".query failed" }, { status: 200 });
+    if (error) {
+      const code = typeof error.code === "string" ? error.code : undefined;
+      if (code && /^5\d{2}$/.test(code)) {
+        return NextResponse.json(
+          { salons: [], warning: "Supabase temporarily unavailable" },
+          { status: 200 },
+        );
+      }
+      return NextResponse.json({ salons: [], warning: error.message ?? ".query failed" }, { status: 200 });
+    }
+
+    if (!data) {
+      return NextResponse.json({ salons: [], warning: "No salons found" }, { status: 200 });
     }
 
     const salons: SalonRecord[] = data.map((row) => ({
@@ -104,6 +115,13 @@ export async function POST(request: NextRequest) {
 
     if (!/^(\+?998)?\d{9}$/.test(phone)) {
       return NextResponse.json({ error: "phone must be a valid Uzbek number (e.g. +998901234567)" }, { status: 400 });
+    }
+
+    if (body.slug) {
+      const slugError = validateSlug(body.slug);
+      if (slugError) {
+        return NextResponse.json({ error: slugError }, { status: 400 });
+      }
     }
 
     const result = await createSalon({
