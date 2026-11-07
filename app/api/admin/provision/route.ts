@@ -54,6 +54,8 @@ interface Body {
   name?: string;
   phone?: string;
   kind?: string;
+  /** The plain-language prompt the console was driven with. */
+  brief?: string;
   taglineRu?: string;
   taglineUz?: string;
 }
@@ -96,6 +98,22 @@ export async function POST(request: Request) {
         }
 
         step("schema", "ok", `input accepted: "${name}", ${phone}`);
+
+        /* The brief is echoed verbatim so the log says what was actually asked
+           for, and is capped because a log line is not a transcript. Keyword
+           inference happens in the browser (lib/console/brief.ts); nothing
+           here calls a model, so the log claims no more than that. */
+        const brief = (body.brief ?? "").replace(/\s+/g, " ").trim();
+        if (brief) {
+          step(
+            "schema",
+            "info",
+            `brief: "${brief.length > 160 ? `${brief.slice(0, 160)}...` : brief}"`,
+          );
+          step("schema", "info", `kind from brief keywords: ${kind}`);
+        } else {
+          step("schema", "info", `kind: ${kind} (no brief supplied)`);
+        }
 
         // ---------------------------------------------- slug + collision ----
         let slug = slugFor(name);

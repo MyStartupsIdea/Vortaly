@@ -27,6 +27,8 @@ export interface ProvisionInput {
   /** Digits only, without the +998 country code. */
   phoneNational: string;
   kind: string;
+  /** The operator's prompt, logged by the server as the build brief. */
+  brief?: string;
   taglineRu?: string;
   taglineUz?: string;
 }
@@ -48,6 +50,7 @@ export async function provisionSalon(
       name: input.name,
       phone: `+998${input.phoneNational}`,
       kind: input.kind,
+      brief: input.brief,
       taglineRu: input.taglineRu,
       taglineUz: input.taglineUz,
     }),

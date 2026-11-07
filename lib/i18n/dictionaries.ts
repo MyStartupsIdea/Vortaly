@@ -153,6 +153,20 @@ const ru = {
   "tpl.salonHint": "Услуги, мастера, запись",
   "tpl.cafeHint": "Меню, предзаказ, лояльность",
   "tpl.carwashHint": "Тарифы, боксы, время",
+  "tpl.salonPrompt":
+    "Салон красоты и барбершоп в Ташкенте: услуги с ценами, мастера, запись на свободное время",
+  "tpl.cafePrompt":
+    "Кофейня: меню с фото, предзаказ навынос, оплата Payme и Click",
+  "tpl.carwashPrompt":
+    "Автомойка с детейлингом: тарифы, свободные боксы, запись по времени",
+
+  "tpl.custom": "Своё приложение",
+
+  "console.detected": "Агенты распознали",
+  "console.detectedNothing": "Из промпта пока ничего не распознано — заполните поля ниже",
+  "console.fromPrompt": "из промпта",
+  "console.promptHint": "Чем конкретнее промпт, тем меньше придётся дозаполнять руками",
+  "form.errPrompt": "Опишите приложение или выберите шаблон",
   "tenant.building": "Проект ещё собирается",
   "tenant.buildingHint": "Агенты заканчивают сборку. Загляните чуть позже.",
   "tenant.missing": "Такого проекта нет",
@@ -350,6 +364,20 @@ const uz: Record<MessageKey, string> = {
   "tpl.salonHint": "Xizmatlar, ustalar, bandlov",
   "tpl.cafeHint": "Menyu, oldindan buyurtma, lojalik",
   "tpl.carwashHint": "Tariflar, bokslar, vaqt",
+  "tpl.salonPrompt":
+    "Toshkentda goʻzallik saloni va barbershop: narxli xizmatlar, ustalar, boʻsh vaqtga bandlov",
+  "tpl.cafePrompt":
+    "Qahvaxona: rasmli menyu, olib ketishga oldindan buyurtma, Payme va Click toʻlovi",
+  "tpl.carwashPrompt":
+    "Detalling bilan avtomoyka: tariflar, boʻsh bokslar, vaqtga bandlov",
+
+  "tpl.custom": "Oʻz ilovasi",
+
+  "console.detected": "Agentlar aniqladi",
+  "console.detectedNothing": "Promptdan hozircha hech narsa aniqlanmadi — pastdagi maydonlarni toʻldiring",
+  "console.fromPrompt": "promptdan",
+  "console.promptHint": "Prompt qanchalik aniq boʻlsa, qoʻlda toʻldirish shunchalik kam",
+  "form.errPrompt": "Ilovani tasvirlang yoki shablon tanlang",
   "tenant.building": "Loyiha hali yigʻilmoqda",
   "tenant.buildingHint": "Agentlar yigʻishni tugatmoqda. Birozdan keyin kiring.",
   "tenant.missing": "Bunday loyiha yoʻq",

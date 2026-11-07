@@ -81,6 +81,7 @@ export default function ConsolePage() {
           name: request.name,
           phoneNational: request.phoneNational,
           kind: request.kind,
+          brief: request.brief,
           taglineRu: request.taglineRu,
           taglineUz: request.taglineUz,
         },

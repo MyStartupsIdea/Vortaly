@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import type { SessionCard } from "@/components/console/ProjectPanel";
+import { readBrief } from "@/lib/console/brief";
 import { ROOT_DOMAIN, TEMPLATES, type ProjectKind } from "@/lib/data/projects";
 import { useI18n } from "@/lib/i18n/provider";
 import { slugify } from "@/lib/translit";
@@ -14,6 +15,12 @@ const TPL_HINT = {
   salon: "tpl.salonHint",
   cafe: "tpl.cafeHint",
   carwash: "tpl.carwashHint",
+} as const;
+/** Clicking a template writes this sentence into the prompt, ready to edit. */
+const TPL_PROMPT = {
+  salon: "tpl.salonPrompt",
+  cafe: "tpl.cafePrompt",
+  carwash: "tpl.carwashPrompt",
 } as const;
 
 /* Three glazed tiles in each trade's colours — enough to tell the cards apart
@@ -35,6 +42,8 @@ export interface CreateRequest {
   name: string;
   phoneNational: string;
   kind: ProjectKind;
+  /** The operator's own words, carried through so the build log can quote them. */
+  brief: string;
   taglineRu?: string;
   taglineUz?: string;
 }
@@ -48,15 +57,37 @@ interface Props {
   onReset: () => void;
 }
 
+/** Enough characters to be a brief rather than a stray keystroke. */
+const MIN_PROMPT = 8;
+
 export function CommandCenter({ onCreate, busy, created, error, onReset }: Props) {
   const { t, tr } = useI18n();
 
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [kind, setKind] = useState<ProjectKind>("salon");
+  const [prompt, setPrompt] = useState("");
+  const [nameInput, setNameInput] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
   const [touched, setTouched] = useState(false);
 
-  const phoneDigits = phone.replace(/\D/g, "").replace(/^998/, "").slice(0, 9);
+  /* The two detail fields follow the prompt until the operator types in them,
+     after which the typed value wins — otherwise editing the prompt would
+     silently overwrite a correction. */
+  const [nameEdited, setNameEdited] = useState(false);
+  const [phoneEdited, setPhoneEdited] = useState(false);
+
+  // Cheap enough to re-read on every keystroke: no network, no model.
+  const brief = useMemo(() => readBrief(prompt), [prompt]);
+
+  const name = nameEdited ? nameInput : brief.name;
+  const phoneDigits = (
+    phoneEdited ? phoneInput.replace(/\D/g, "").replace(/^998/, "") : brief.phoneNational
+  ).slice(0, 9);
+
+  /* The kind is always read back out of the prompt, so there is one source of
+     truth: a template click fills the prompt, and the matching card lights up
+     because the words are now in there. */
+  const kind = brief.kind;
+
+  const promptValid = prompt.trim().length >= MIN_PROMPT;
   const nameValid = name.trim().length >= 2;
   const phoneValid = /^\d{9}$/.test(phoneDigits);
 
@@ -66,16 +97,35 @@ export function CommandCenter({ onCreate, busy, created, error, onReset }: Props
 
   const template = TEMPLATES.find((item) => item.kind === kind);
 
+  /* A custom build has no canned tagline, so the operator's own sentence is
+     used rather than mislabelling the tenant as a beauty salon. It is not
+     translated: inventing an Uzbek rendering of their words would be worse
+     than showing what they actually wrote. */
+  const ownWords = prompt.trim().replace(/\s+/g, " ").slice(0, 120);
+  const taglineRu = template?.tagline.ru ?? ownWords;
+  const taglineUz = template?.tagline.uz ?? ownWords;
+
   function submit() {
     setTouched(true);
-    if (!nameValid || !phoneValid) return;
+    if (!promptValid || !nameValid || !phoneValid) return;
     onCreate({
       name: name.trim(),
       phoneNational: phoneDigits,
       kind,
-      taglineRu: template?.tagline.ru,
-      taglineUz: template?.tagline.uz,
+      brief: prompt.trim(),
+      taglineRu,
+      taglineUz,
     });
+  }
+
+  function startOver() {
+    setPrompt("");
+    setNameInput("");
+    setPhoneInput("");
+    setNameEdited(false);
+    setPhoneEdited(false);
+    setTouched(false);
+    onReset();
   }
 
   if (created) {
@@ -86,9 +136,7 @@ export function CommandCenter({ onCreate, busy, created, error, onReset }: Props
             {t("form.created")}
           </p>
 
-          <p className="mt-4 font-mono text-[15px] break-all text-brand">
-            {created.subdomain}
-          </p>
+          <p className="mt-4 font-mono text-[15px] break-all text-brand">{created.subdomain}</p>
 
           {!created.persisted && (
             <p className="mt-4 max-w-[48ch] rounded-card border border-saffron/50 bg-saffron/10 p-3 text-[13px]">
@@ -108,15 +156,7 @@ export function CommandCenter({ onCreate, busy, created, error, onReset }: Props
                 {t("form.openTenant")}
               </Link>
             )}
-            <Button
-              variant="secondary"
-              onClick={() => {
-                setName("");
-                setPhone("");
-                setTouched(false);
-                onReset();
-              }}
-            >
+            <Button variant="secondary" onClick={startOver}>
               {t("form.another")}
             </Button>
           </div>
@@ -129,84 +169,46 @@ export function CommandCenter({ onCreate, busy, created, error, onReset }: Props
     <section className="flex h-full min-h-0 flex-col overflow-y-auto">
       <div className="px-6 pt-6 pb-5">
         <h1 className="font-display text-[26px] leading-tight font-bold tracking-[-0.03em]">
-          {t("form.title")}
+          {t("console.command")}
         </h1>
         <p className="mt-2 max-w-[52ch] text-[14px] leading-snug text-ink-muted">
-          {t("form.hint")}
+          {t("console.commandHint")}
         </p>
       </div>
 
-      <div className="space-y-5 px-6">
+      {/* --------------------------------------------------------- the prompt --- */}
+      <div className="px-6">
         <label className="block">
-          <span className="block text-[13px] text-ink-muted">{t("form.name")}</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t("form.namePlaceholder")}
+          <span className="block text-[13px] text-ink-muted">{t("console.promptLabel")}</span>
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder={t("console.promptPlaceholder")}
+            rows={4}
             disabled={busy}
-            className="mt-1.5 w-full rounded-card border border-hairline bg-surface-raised px-4 py-3 text-[16px] outline-none placeholder:text-ink-muted/60 focus:border-brand disabled:opacity-60"
+            spellCheck={false}
+            className="mt-1.5 w-full resize-y rounded-card border border-hairline bg-surface-raised px-4 py-3 text-[15px] leading-relaxed outline-none placeholder:text-ink-muted/60 focus:border-brand disabled:opacity-60"
           />
-          {touched && !nameValid && (
-            <span className="mt-1.5 block text-[12px] text-accent">{t("form.errName")}</span>
-          )}
         </label>
-
-        <label className="block">
-          <span className="block text-[13px] text-ink-muted">{t("form.phone")}</span>
-          {/* Country code is fixed: every business here is on +998. */}
-          <span className="mt-1.5 flex items-center rounded-card border border-hairline bg-surface-raised focus-within:border-brand">
-            <span className="pl-4 text-[16px] font-semibold text-ink-muted tabular-nums">
-              +998
-            </span>
-            <input
-              value={groupPhone(phoneDigits)}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="90 123 45 67"
-              inputMode="numeric"
-              autoComplete="tel-national"
-              disabled={busy}
-              className="w-full bg-transparent px-3 py-3 text-[16px] tabular-nums outline-none placeholder:text-ink-muted/60 disabled:opacity-60"
-            />
-          </span>
-          {touched && !phoneValid && (
-            <span className="mt-1.5 block text-[12px] text-accent">{t("form.errPhone")}</span>
+        <p className="mt-1.5 text-[12px] leading-snug text-ink-muted">
+          {touched && !promptValid ? (
+            <span className="text-accent">{t("form.errPrompt")}</span>
+          ) : (
+            t("console.promptHint")
           )}
-        </label>
-
-        <div>
-          <span className="block text-[13px] text-ink-muted">{t("form.subdomain")}</span>
-          <p className="mt-1.5 font-mono text-[15px] break-all">
-            {slug ? (
-              <>
-                <span className="text-ink">{slug}</span>
-                <span className="text-ink-muted">.{ROOT_DOMAIN}</span>
-              </>
-            ) : (
-              <span className="text-ink-muted/60">{t("form.subdomainEmpty")}</span>
-            )}
-          </p>
-        </div>
-
-        {error && (
-          <p className="rounded-card border border-accent/40 bg-accent/8 p-3 font-mono text-[12px] break-words text-accent">
-            {error}
-          </p>
-        )}
-
-        <div className="flex justify-end">
-          <Button disabled={busy} onClick={submit}>
-            {busy ? t("form.sending") : t("form.submit")}
-          </Button>
-        </div>
+        </p>
       </div>
 
-      <div className="mt-8 px-6 pb-8">
+      {/* ---------------------------------------------------- quick templates --- */}
+      <div className="mt-6 px-6">
         <h2 className="font-display text-[13px] font-semibold text-ink-muted">
-          {t("form.kind")}
+          {t("console.templates")}
         </h2>
 
         <div className="mt-3 grid gap-2 sm:grid-cols-3">
           {TEMPLATES.map((item) => {
+            // Lit because the prompt currently reads as this trade, which is
+            // also how a hand-typed prompt gets its card highlighted.
             const active = kind === item.kind;
             return (
               <button
@@ -214,7 +216,7 @@ export function CommandCenter({ onCreate, busy, created, error, onReset }: Props
                 type="button"
                 aria-pressed={active}
                 disabled={busy}
-                onClick={() => setKind(item.kind)}
+                onClick={() => setPrompt(t(TPL_PROMPT[item.kind]))}
                 className={cx(
                   "rounded-card border p-4 text-left transition-colors duration-150 disabled:opacity-60",
                   active
@@ -237,12 +239,114 @@ export function CommandCenter({ onCreate, busy, created, error, onReset }: Props
             );
           })}
         </div>
+      </div>
+
+      {/* ------------------------------------------------- what the brief gave --- */}
+      <div className="mt-7 border-t border-hairline px-6 pt-5 pb-8">
+        <h2 className="font-display text-[13px] font-semibold text-ink-muted">
+          {brief.name || brief.phoneNational || kind !== "custom"
+            ? t("console.detected")
+            : t("console.detectedNothing")}
+        </h2>
+
+        <div className="mt-3 grid gap-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="flex items-baseline gap-2">
+              <span className="text-[13px] text-ink-muted">{t("form.name")}</span>
+              {!nameEdited && brief.name && (
+                <span className="font-mono text-[10px] text-brand">
+                  {t("console.fromPrompt")}
+                </span>
+              )}
+            </span>
+            <input
+              value={name}
+              onChange={(e) => {
+                setNameEdited(true);
+                setNameInput(e.target.value);
+              }}
+              placeholder={t("form.namePlaceholder")}
+              disabled={busy}
+              className="mt-1.5 w-full rounded-card border border-hairline bg-surface-raised px-4 py-3 text-[16px] outline-none placeholder:text-ink-muted/60 focus:border-brand disabled:opacity-60"
+            />
+            {touched && !nameValid && (
+              <span className="mt-1.5 block text-[12px] text-accent">{t("form.errName")}</span>
+            )}
+          </label>
+
+          <label className="block">
+            <span className="flex items-baseline gap-2">
+              <span className="text-[13px] text-ink-muted">{t("form.phone")}</span>
+              {!phoneEdited && brief.phoneNational && (
+                <span className="font-mono text-[10px] text-brand">
+                  {t("console.fromPrompt")}
+                </span>
+              )}
+            </span>
+            {/* Country code is fixed: every business here is on +998. */}
+            <span className="mt-1.5 flex items-center rounded-card border border-hairline bg-surface-raised focus-within:border-brand">
+              <span className="pl-4 text-[16px] font-semibold text-ink-muted tabular-nums">
+                +998
+              </span>
+              <input
+                value={groupPhone(phoneDigits)}
+                onChange={(e) => {
+                  setPhoneEdited(true);
+                  setPhoneInput(e.target.value);
+                }}
+                placeholder="90 123 45 67"
+                inputMode="numeric"
+                autoComplete="tel-national"
+                disabled={busy}
+                className="w-full bg-transparent px-3 py-3 text-[16px] tabular-nums outline-none placeholder:text-ink-muted/60 disabled:opacity-60"
+              />
+            </span>
+            {touched && !phoneValid && (
+              <span className="mt-1.5 block text-[12px] text-accent">{t("form.errPhone")}</span>
+            )}
+          </label>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-3">
+          <div>
+            <span className="block text-[13px] text-ink-muted">{t("form.subdomain")}</span>
+            <p className="mt-1 font-mono text-[15px] break-all">
+              {slug ? (
+                <>
+                  <span className="text-ink">{slug}</span>
+                  <span className="text-ink-muted">.{ROOT_DOMAIN}</span>
+                </>
+              ) : (
+                <span className="text-ink-muted/60">{t("form.subdomainEmpty")}</span>
+              )}
+            </p>
+          </div>
+
+          <div>
+            <span className="block text-[13px] text-ink-muted">{t("form.kind")}</span>
+            <p className="mt-1 text-[15px]">
+              {template ? t(TPL_LABEL[template.kind]) : t("tpl.custom")}
+            </p>
+          </div>
+        </div>
 
         {template && (
-          <p className="mt-3 max-w-[56ch] text-[12px] leading-snug text-ink-muted">
+          <p className="mt-4 max-w-[56ch] text-[12px] leading-snug text-ink-muted">
             {tr(template.tagline)}
           </p>
         )}
+
+        {error && (
+          <p className="mt-4 rounded-card border border-accent/40 bg-accent/8 p-3 font-mono text-[12px] break-words text-accent">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-6 flex justify-end">
+          <Button disabled={busy} onClick={submit}>
+            {busy ? t("console.building") : t("console.build")}
+          </Button>
+        </div>
       </div>
     </section>
   );
