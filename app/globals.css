@@ -1,0 +1,184 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   UzMini — "majolica" design tokens.
+   Grounded in Uzbek glazed tilework: porcelain ground, oxidised-copper ink,
+   Samarkand turquoise, pomegranate and saffron.
+--------------------------------------------------------------------------- */
+
+@theme {
+  /* Raw palette */
+  --color-porcelain: #edf1ef;
+  --color-petrol: #0f2e2c;
+  --color-petrol-soft: #1f4b45;
+  --color-turquoise: #0e7c86;
+  --color-turquoise-deep: #0a5c64;
+  --color-pomegranate: #b2322b;
+  --color-saffron: #e0a32e;
+
+  /* Semantic surfaces — overridden under dark mode below */
+  --color-surface: #edf1ef;
+  --color-surface-raised: #f7f9f8;
+  --color-surface-sunken: #e2e8e5;
+  --color-tile: #fbfcfc;
+  --color-tile-taken: #d5dbd7;
+  --color-ink: #0f2e2c;
+  --color-ink-muted: #5a6b67;
+  --color-hairline: rgba(15, 46, 44, 0.12);
+  --color-brand: #0e7c86;
+  --color-brand-ink: #ffffff;
+  --color-accent: #b2322b;
+
+  /* Radii carry meaning: tiles are nearly square, sheets are generous */
+  --radius-tile: 0.375rem;
+  --radius-card: 0.875rem;
+  --radius-sheet: 1.5rem;
+
+  /* Glaze sheen, re-pointed under dark mode so one utility serves both */
+  --sheen-a: rgb(255 255 255 / 0.72);
+  --sheen-b: rgb(255 255 255 / 0.1);
+  --sheen-top: rgb(255 255 255 / 0.55);
+  --sheen-bottom: rgb(15 46 44 / 0.06);
+
+  --font-display: var(--font-unbounded), ui-sans-serif, sans-serif;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-surface: #0b1f1e;
+    --color-surface-raised: #122b29;
+    --color-surface-sunken: #081817;
+    --color-tile: #17302e;
+    --color-tile-taken: #102423;
+    --color-ink: #e6edea;
+    --color-ink-muted: #8fa39e;
+    --color-hairline: rgba(230, 237, 234, 0.14);
+    --color-brand: #19a0ab;
+    --color-brand-ink: #04201f;
+    --color-accent: #d8544c;
+
+    --sheen-a: rgb(255 255 255 / 0.1);
+    --sheen-b: rgb(255 255 255 / 0.02);
+    --sheen-top: rgb(255 255 255 / 0.08);
+    --sheen-bottom: rgb(0 0 0 / 0.25);
+  }
+}
+
+html {
+  background-color: var(--color-surface);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  /* Telegram hands the real viewport height over as a CSS variable. */
+  min-height: 100vh;
+  min-height: var(--tg-viewport-stable-height, 100vh);
+  overscroll-behavior-y: contain;
+  text-rendering: optimizeLegibility;
+}
+
+/* Telegram's own webview already handles long-press; selecting button labels
+   is only ever an accident. */
+button,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------- utilities --- */
+
+/* The glaze: a specular sheen across a tile, as on a fired ceramic face. */
+@utility glaze {
+  background-color: var(--color-tile);
+  background-image: linear-gradient(
+    152deg,
+    var(--sheen-a) 0%,
+    var(--sheen-b) 38%,
+    rgb(255 255 255 / 0) 62%
+  );
+  box-shadow:
+    inset 0 1px 0 var(--sheen-top),
+    inset 0 -1px 0 var(--sheen-bottom);
+}
+
+/* Unglazed biscuit: the matte, slightly sunken face of a taken slot. */
+@utility biscuit {
+  background-color: var(--color-tile-taken);
+  box-shadow: inset 0 1px 2px rgb(15 46 44 / 0.1);
+}
+
+/* Glazed in pomegranate — the one loud moment in the interface. */
+@utility glaze-accent {
+  background-color: var(--color-accent);
+  background-image: linear-gradient(
+    152deg,
+    rgb(255 255 255 / 0.4) 0%,
+    rgb(255 255 255 / 0.06) 44%,
+    rgb(0 0 0 / 0.08) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.4),
+    0 1px 10px rgb(178 50 43 / 0.35);
+}
+
+@utility glaze-brand {
+  background-color: var(--color-brand);
+  background-image: linear-gradient(
+    152deg,
+    rgb(255 255 255 / 0.34) 0%,
+    rgb(255 255 255 / 0.05) 44%,
+    rgb(0 0 0 / 0.08) 100%
+  );
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35);
+}
+
+@utility hairline-y {
+  border-top: 1px solid var(--color-hairline);
+  border-bottom: 1px solid var(--color-hairline);
+}
+
+/* Horizontal day strip: swipeable, without a visible scrollbar. */
+@utility rail {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+@utility rail-item {
+  scroll-snap-align: start;
+  flex: none;
+}
+
+.rail::-webkit-scrollbar {
+  display: none;
+}
+
+/* Respects the home indicator on iPhone and Telegram's bottom inset. */
+@utility pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
