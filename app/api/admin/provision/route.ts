@@ -1,5 +1,24 @@
-import { createSalon, findSalonBySlug, slugFor } from "@/lib/supabase/salons";
+import {
+  createSalon,
+  findSalonBySlug,
+  isNetworkError,
+  slugFor,
+  type FindSalonResult,
+} from "@/lib/supabase/salons";
 import type { LogLevel, StageId } from "@/lib/data/projects";
+import { ROOT_DOMAIN } from "@/lib/domain/config";
+
+const ADMIN_SECRET_OK = process.env.PLATFORM_ADMIN_SECRET == null
+  ? () => false
+  : (request: Request) => {
+      const secret = process.env.PLATFORM_ADMIN_SECRET;
+      if (!secret) return false;
+
+      const auth = (request.headers.get("authorization") ?? "").trim();
+      if (auth.startsWith("Bearer ") && auth.slice(7) === secret) return true;
+
+      return request.headers.get("x-platform-admin-secret") === secret;
+    };
 
 /**
  * Streams tenant provisioning as newline-delimited JSON, one event per real
@@ -40,8 +59,6 @@ export interface ProvisionError {
 
 export type ProvisionEvent = ProvisionStep | ProvisionDone | ProvisionError;
 
-const ROOT_DOMAIN = "uzmini.uz";
-
 /** Tables a tenant of each kind gets, matching supabase/schema.sql. */
 const TENANT_TABLES: Record<string, string[]> = {
   salon: ["salons", "services", "masters", "master_services", "bookings", "payments"],
@@ -61,6 +78,10 @@ interface Body {
 }
 
 export async function POST(request: Request) {
+  if (!ADMIN_SECRET_OK(request)) {
+    return respondWithError(401, "access denied");
+  }
+
   let body: Body;
   try {
     body = (await request.json()) as Body;
@@ -119,15 +140,39 @@ export async function POST(request: Request) {
         let slug = slugFor(name);
         step("schema", "info", `slug derived: ${slug}`);
 
-        let taken = await findSalonBySlug(slug);
-        if (taken) {
+        let lookup: FindSalonResult = await findSalonBySlug(slug);
+
+        if (lookup.unavailable) {
+          send({
+            type: "error",
+            status: 503,
+            error:
+              "Supabase temporarily unavailable — cannot verify slug availability.",
+          });
+          return;
+        }
+
+        if (lookup.found) {
           const base = slug;
           let suffix = 2;
-          while (taken && suffix <= 9) {
+
+          while (lookup.found && suffix <= 9) {
             slug = `${base}-${suffix}`;
-            taken = await findSalonBySlug(slug);
+
+            lookup = await findSalonBySlug(slug);
+            if (lookup.unavailable) {
+              send({
+                type: "error",
+                status: 503,
+                error:
+                  "Supabase temporarily unavailable — cannot verify slug availability.",
+              });
+              return;
+            }
+
             suffix += 1;
           }
+
           step("schema", "warn", `"${base}" already taken, using ${slug}`);
         } else {
           step("schema", "ok", `${slug} is free`);
@@ -137,6 +182,10 @@ export async function POST(request: Request) {
         const tables = TENANT_TABLES[kind];
         step("schema", "info", `tenant rows land in: ${tables.join(", ")}`);
 
+        // Do not trust a free-looking slug or a successful-looking insert as
+        // proof that the tenant was created. If createSalon could not persist,
+        // provisioning is not done — report it as an error so the caller does
+        // not think the tenant is live.
         const result = await createSalon({
           name,
           taglineRu: body.taglineRu?.trim() || "Салон красоты и барбершоп",
@@ -150,26 +199,51 @@ export async function POST(request: Request) {
         if (result.persisted) {
           step("schema", "ok", `insert into salons: id=${result.id}`);
         } else {
-          step("schema", "warn", `insert failed: ${result.warning ?? "unknown error"}`);
+          // Persisted false means the row was not stored — either Supabase was
+          // unreachable/in degraded state, or the insert itself failed. Either
+          // way this provisioning cannot be reported as successful.
+          send({
+            type: "error",
+            status: 503,
+            error:
+              result.warning ? `tenant creation failed: ${result.warning}` : "tenant creation failed",
+          });
+          return;
         }
 
-        // -------------------------------------------------------- read back --
-        const verified = await findSalonBySlug(result.slug);
-        if (verified) {
-          step("schema", "ok", `read back ok: ${verified.name}`);
-        } else {
-          step("schema", "warn", "read back returned no row");
+        // Re-read what we just wrote. If this comes back unavailable or empty,
+        // do not report the tenant as live.
+        const verified: FindSalonResult = await findSalonBySlug(result.slug);
+
+        if (verified.unavailable) {
+          send({
+            type: "error",
+            status: 503,
+            error:
+              "Supabase temporarily unavailable — cannot confirm tenant was created.",
+          });
+          return;
         }
+
+        if (!verified.found) {
+          send({
+            type: "error",
+            status: 500,
+            error: "tenant creation reported success but the row could not be read back",
+          });
+          return;
+        }
+
+        step("schema", "ok", `read back ok: ${result.slug}`);
+
 
         // ------------------------------------------------------- subdomain ---
         const subdomain = `${result.slug}.${ROOT_DOMAIN}`;
         step("domain", "info", `subdomain reserved: ${subdomain}`);
         step(
           "domain",
-          verified ? "ok" : "warn",
-          verified
-            ? "middleware resolves this host to the tenant"
-            : "middleware cannot resolve the host without a row",
+          "ok",
+          "middleware resolves this host to the tenant",
         );
         // Honest: nothing here talks to a DNS or ACME provider yet.
         step("domain", "warn", "dns record and tls certificate: not automated yet");
@@ -180,20 +254,16 @@ export async function POST(request: Request) {
         step("ui", "ok", "locales ready: ru, uz");
 
         // ---------------------------------------------------------- deploy ---
-        if (verified) {
-          step("deploy", "ok", `live at /${result.slug}`);
-        } else {
-          step("deploy", "warn", "not live: tenant was not persisted");
-        }
+        step("deploy", "ok", `live at /${result.slug}`);
+
 
         send({
           type: "done",
           slug: result.slug,
           id: result.id,
-          persisted: Boolean(verified),
+          persisted: true,
           subdomain,
           urls: { tenant: `https://${subdomain}` },
-          warning: result.warning,
         });
       } catch (cause) {
         send({

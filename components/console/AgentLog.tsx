@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { STAGE_ORDER, type LogLine, type StageId } from "@/lib/data/projects";
+import { isSaved, type SaveState } from "@/lib/save-state";
 import { useI18n } from "@/lib/i18n/provider";
 import { cx } from "@/lib/cx";
 
@@ -38,7 +39,18 @@ function stamp(startedAt: number, index: number): string {
     .join(":");
 }
 
-export function AgentLog({ run }: { run: Run | null }) {
+/**
+ * `saveState` is the outcome of the run, which the log itself cannot know: a
+ * stream can end cleanly having reported that nothing was stored. Without it
+ * the log would paint every stage green the moment the last line arrived.
+ */
+export function AgentLog({
+  run,
+  saveState,
+}: {
+  run: Run | null;
+  saveState?: SaveState | null;
+}) {
   const { t } = useI18n();
   const scroller = useRef<HTMLDivElement>(null);
 
@@ -50,16 +62,23 @@ export function AgentLog({ run }: { run: Run | null }) {
 
   const visible = run ? run.lines.slice(0, run.shown) : [];
 
-  const stageState = (stage: StageId): "done" | "running" | "pending" => {
+  const settled = run !== null && run.finishedMs !== null;
+  /* Only a confirmed save closes the run out as done. An unsaved outcome
+     leaves the last stage marked as a problem instead of green. */
+  const stored = saveState !== undefined && saveState !== null && isSaved(saveState);
+
+  const stageState = (stage: StageId): "done" | "running" | "pending" | "warn" => {
     if (!run) return "pending";
     const last = visible.at(-1);
     if (!last) return "pending";
     const order = STAGE_ORDER.indexOf(stage);
     const current = STAGE_ORDER.indexOf(last.stage);
-    if (run.finishedMs !== null) return "done";
+    // A stage the run never reached stays pending once it is over, rather
+    // than being back-filled as though it had run.
     if (order < current) return "done";
-    if (order === current) return "running";
-    return "pending";
+    if (order > current) return "pending";
+    if (!settled) return "running";
+    return stored || saveState === undefined ? "done" : "warn";
   };
 
   return (
@@ -71,7 +90,7 @@ export function AgentLog({ run }: { run: Run | null }) {
         {run && (
           <span className="font-mono text-[11px] text-porcelain/50 tabular-nums">
             {run.finishedMs !== null
-              ? t("console.done", { seconds: (run.finishedMs / 1000).toFixed(1) })
+              ? t("console.streamDone", { seconds: (run.finishedMs / 1000).toFixed(1) })
               : `${run.shown}/${run.lines.length}${run.awaitingApi ? "+" : ""}`}
           </span>
         )}
@@ -91,7 +110,9 @@ export function AgentLog({ run }: { run: Run | null }) {
                     ? "bg-turquoise text-petrol"
                     : state === "running"
                       ? "bg-saffron text-petrol motion-safe:animate-pulse"
-                      : "bg-porcelain/10 text-porcelain/45",
+                      : state === "warn"
+                        ? "bg-accent text-porcelain"
+                        : "bg-porcelain/10 text-porcelain/45",
                 )}
               >
                 {i + 1}
@@ -99,7 +120,11 @@ export function AgentLog({ run }: { run: Run | null }) {
               <span
                 className={cx(
                   "text-[12px]",
-                  state === "pending" ? "text-porcelain/40" : "text-porcelain/85",
+                  state === "pending"
+                    ? "text-porcelain/40"
+                    : state === "warn"
+                      ? "text-porcelain"
+                      : "text-porcelain/85",
                 )}
               >
                 {t(STAGE_LABEL[stage])}

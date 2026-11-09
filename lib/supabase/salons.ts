@@ -2,38 +2,54 @@ import { slugify } from "@/lib/translit";
 import { getSupabaseServer } from "./server";
 
 /**
+ * A bilingual string used across salon/profile labels and addresses. The
+ * canonical shape is `Record<"ru"|"uz", string>`; import it from
+ * `@/lib/types` so every consumer uses the same definition instead of a local
+ * shape.
+ */
+import type { Translated } from "@/lib/types";
+
+/**
  * Multi-tenant "platform tenant" = a salon (salon_id).
- *
- * Every entity in the schema already carries salon_id, so tenant resolution is
+ * * Every entity in the schema already carries salon_id, so tenant resolution is
  * just: which salon does this subdomain belong to? The middleware resolves that
  * once and stashes the id on the request via the `x-salon-id` header so API
  * routes and server components never re-derive it from untrusted headers.
  */
-
 export interface SalonRecord {
   id: string;
   name: string;
-  tagline_ru: string;
-  tagline_uz: string;
-  address_ru: string;
-  address_uz: string;
+  tagline: Translated;
+  address: Translated;
   phone: string;
   rating: number;
-  review_count: number;
-  open_from: string;
-  open_to: string;
-  created_at: string;
+  reviewCount: number;
+  openFrom: string;
+  openTo: string;
+  createdAt: string;
 }
 
 const TABLE = "salons";
 
 /**
- * Look up a salon by its subdomain slug. Returns null when the slug does not
- * match any active salon (or when Supabase is not configured).
+ * Look up a salon by its subdomain slug.
+ *
+ * Returns one of:
+ *  - `{ found: true, record }` — the tenant exists.
+ *  - `{ found: false, available: true }` — the slug is free (no row exists).
+ *  - `{ found: false, available: false, unavailable: true }` — the database is
+ *    unreachable or degraded, so we cannot say whether the slug is free.
+ *
+ * This is intentionally side-effect free: it does not write anything, it only
+ * reads. The `slug` argument here comes exclusively from the host header path in
+ * the middleware or from validated admin input; it is never taken from a
+ * client-supplied booking payload or a payment callback.
  */
-export async function findSalonBySlug(slug: string): Promise<SalonRecord | null> {
+export async function findSalonBySlug(slug: string): Promise<FindSalonResult> {
   const db = getSupabaseServer();
-  if (!db) return null;
+  if (!db) {
+    return { found: false, available: false, unavailable: true };
+  }
 
   try {
     const { data, error } = await db
@@ -46,22 +62,61 @@ export async function findSalonBySlug(slug: string): Promise<SalonRecord | null>
       const code = typeof error.code === "string" ? error.code : undefined;
       if (code && /^5\d{2}$/.test(code)) {
         console.warn("[salons.findSalonBySlug] Supabase temporarily unavailable");
-        return null;
+        return { found: false, available: false, unavailable: true };
       }
-      return null;
+      return { found: false, available: true, unavailable: false };
     }
-    if (!data) return null;
-    return toRecord(data);  } catch (err) {
+
+    if (!data) {
+      return { found: false, available: true, unavailable: false };
+    }
+
+    return { found: true, record: toRecord(data), available: false, unavailable: false };
+  } catch (err) {
     // Network errors (fetch failed, DNS, timeout) should not crash the
-    // platform. Return null so the caller can fall back gracefully.
+    // platform. We report them as unavailable so callers never mistake a
+    // network fault for "slug is free".
     const msg = err instanceof Error ? err.message : String(err);
     if (isNetworkError(err)) {
       console.warn("[salons.findSalonBySlug] Supabase network error, degrading:", msg);
-    } else {
-      console.error("[salons.findSalonBySlug] unexpected error:", msg);
+      return { found: false, available: false, unavailable: true };
     }
-    return null;
+    console.error("[salons.findSalonBySlug] unexpected error:", msg);
+    return { found: false, available: false, unavailable: true };
   }
+}
+
+/**
+ * Result of a single-tenant lookup.
+ */
+export interface FindSalonResult {
+  /** A salon row was found. */
+  found: boolean;
+  /** The database answered authoritatively and reported no row for this slug. */
+  available: boolean;
+  /** The database could not be reached or was degraded, so the answer is unknown. */
+  unavailable: boolean;
+  /** Present only when `found` is true. Only trusted callers need the full record. */
+  record?: SalonRecord;
+}
+
+/**
+ * Convenient check helpers built on top of the explicit result type.
+ */
+export function findSalonBySlugFound(result: FindSalonResult): boolean {
+  return result.found;
+}
+
+export function findSalonBySlugAvailable(result: FindSalonResult): boolean {
+  return result.available;
+}
+
+export function findSalonBySlugUnavailable(result: FindSalonResult): boolean {
+  return result.unavailable;
+}
+
+export function findSalonBySlugRecord(result: FindSalonResult): SalonRecord | undefined {
+  return result.record;
 }
 
 interface SalonRow {
@@ -83,22 +138,20 @@ function toRecord(row: SalonRow): SalonRecord {
   return {
     id: row.id,
     name: row.name,
-    tagline_ru: row.tagline_ru,
-    tagline_uz: row.tagline_uz,
-    address_ru: row.address_ru,
-    address_uz: row.address_uz,
+    tagline: { ru: row.tagline_ru, uz: row.tagline_uz },
+    address: { ru: row.address_ru, uz: row.address_uz },
     phone: row.phone,
     rating: row.rating ?? 0,
-    review_count: row.review_count ?? 0,
-    open_from: row.open_from,
-    open_to: row.open_to,
-    created_at: row.created_at,
+    reviewCount: row.review_count ?? 0,
+    openFrom: row.open_from,
+    openTo: row.open_to,
+    createdAt: row.created_at,
   };
 }
 
 /**
  * Create a new salon (a new tenant / mini-app project). The returned `slug` is
- * the canonical subdomain — point DNS for `<slug>.uzmini.uz` at the platform.
+ * the canonical subdomain — point DNS for `<slug>.<ROOT_DOMAIN>` at the platform.
  *
  * Slugs are forced lowercase + ASCII-only so they make safe DNS labels.
  */
@@ -132,14 +185,13 @@ export async function createSalon(input: {
         address_uz: input.addressUz,
         phone: input.phone,
       })
-      .select("id").single<Pick<SalonRow, "id">>();
-
-      if (error) {
-        // Network failures from the Supabase client surface as thrown errors,
-        // but a missing table / constraint violation surfaces as `error`.
-        // Distinguish infrastructure faults from validation failures.
-        const code = typeof error.code === "string" ? error.code : undefined;
-        if ("code" in error && typeof (error as { code: unknown }).code === "string" && /^5\d{2}$/.test((error as { code: unknown }).code as string)) {
+      .select("id").single<Pick<SalonRow, "id">>();    if (error) {
+      // Network failures from the Supabase client surface as thrown errors,
+      // but a missing table / constraint violation surfaces as `error`.
+      // Distinguish infrastructure faults from validation failures.
+      if ("code" in error) {
+        const code = (error as { code?: unknown }).code;
+        if (typeof code === "string" && /^5\d{2}$/.test(code)) {
           return {
             slug,
             id: slug,
@@ -147,9 +199,10 @@ export async function createSalon(input: {
             warning: "Supabase temporarily unavailable",
           };
         }
-  
-        return { slug, id: slug, persisted: false, warning: "Insert failed on Supabase" };
       }
+      return { slug, id: slug, persisted: false, warning: "Insert failed on Supabase" };
+    }
+
 
     return { slug, id: data.id, persisted: true };
   } catch (err) {
@@ -273,7 +326,10 @@ export function isNetworkError(error: unknown): boolean {
     // in the message (e.g. "500: ...") or as the numeric `code` field (e.g.
     // "500"). Both forms are infrastructure faults, so callers degrade.
     if (/^5\d{2}/.test(message)) return true;
-    if ("code" in error && typeof (error as { code: unknown }).code === "string" && /^5\d{2}$/.test((error as { code: unknown }).code as string)) return true;
+    if ("code" in error) {
+      const code = (error as { code?: unknown }).code;
+      if (typeof code === "string" && /^5\d{2}$/.test(code)) return true;
+    }
 
     // Supabase JS may throw with a cause chain; check it too.
     if ("cause" in error && error.cause instanceof Error) {

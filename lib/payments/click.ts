@@ -22,9 +22,14 @@ export function isClickConfigured(): boolean {
   return Boolean(process.env.CLICK_SERVICE_ID && process.env.CLICK_MERCHANT_ID);
 }
 
-export function buildClickIntent(bookingId: string, amountSum: number): PaymentIntent {
+export function buildClickIntent(
+  bookingId: string,
+  amountSum: number,
+  locale?: "ru" | "uz",
+): PaymentIntent {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-  const returnUrl = `${appUrl}/checkout/${bookingId}?paid=click`;
+  const returnLocale = locale === "uz" ? "uz" : "ru";
+  const returnUrl = `${appUrl}/checkout/${bookingId}?paid=click&locale=${returnLocale}`;
 
   const params = new URLSearchParams({
     service_id: process.env.CLICK_SERVICE_ID ?? "SERVICE_ID",

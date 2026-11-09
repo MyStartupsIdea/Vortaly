@@ -45,7 +45,6 @@ export interface Salon {
 }
 
 export type BookingStatus = "draft" | "pending" | "confirmed" | "paid" | "cancelled";
-
 export interface Booking {
   id: string;
   salonId: string;
@@ -61,10 +60,9 @@ export interface Booking {
   customerName: string;
   customerPhone: string;
   telegramUserId?: number;
-  /** How the customer paid, once a provider has confirmed it. */
-  paymentProvider?: PaymentProvider;
   createdAt: string;
-}export type PaymentProvider = "click" | "payme";
+}
+export type PaymentProvider = "click" | "payme";
 export type BookingProvider = PaymentProvider;
 export interface PaymentIntent {
   provider: PaymentProvider;

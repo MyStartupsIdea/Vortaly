@@ -29,12 +29,21 @@ export async function POST(
     return NextResponse.json({ error: "amountSum must be positive" }, { status: 400 });
   }
 
-  // Tenant context for payments: the booking belongs to a salon resolved by
-  // the subdomain middleware. When a real owner hits this from their own
-  // *.uzmini.uz subdomain, the header is set; the booking + its salon can be
-  // cross-checked before redirecting to the payment provider (future step).
-  const salonId =
-    request.headers.get("x-salon-id") as string | null;
+  // Tenant context for payments: this endpoint should only be usable from a
+  // tenant subdomain where the middleware resolved x-salon-id server-side. The
+  // header is overwritten by the middleware, so we ignore any client-supplied
+  // value and reject requests without a resolved tenant.
+  const salonIdHeader = request.headers.get("x-salon-id") as string | null;
+  const salonId = salonIdHeader?.trim();
+  if (!salonId) {
+    return NextResponse.json(
+      {
+        error: "Tenant not resolved",
+        hint: "Payment checkout must be started from your tenant subdomain.",
+      },
+      { status: 403 },
+    );
+  }
 
   const intent = buildIntent(provider, body.bookingId, body.amountSum, body.locale ?? "ru");
 

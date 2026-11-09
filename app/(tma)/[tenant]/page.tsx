@@ -1,12 +1,17 @@
 import { notFound } from "next/navigation";
 import { getProject } from "@/lib/data/projects";
-import { findSalonBySlug, isValidSlug } from "@/lib/supabase/salons";
+import {
+  findSalonBySlug,
+  findSalonBySlugFound,
+  findSalonBySlugRecord,
+  isValidSlug,
+} from "@/lib/supabase/salons";
 import { MiniApp } from "@/components/tma/MiniApp";
 import { TenantPending } from "@/components/tma/TenantPending";
 
 /**
  * A tenant's Mini App. In production each project answers on its own
- * subdomain (chinor.uzmini.uz); locally the same screens are reachable at
+ * subdomain (chinor.<ROOT_DOMAIN>); locally the same screens are reachable at
  * /chinor, /coffee and so on, which is what the console links to.
  *
  * Resolution order: the one module that exists, then the real salons table,
@@ -24,13 +29,14 @@ export default async function TenantPage({
   // Chinor is the module that is actually built.
   if (tenant === "chinor") return <MiniApp />;
 
-  const salon = await findSalonBySlug(tenant);
-  if (salon) {
+  const lookup = await findSalonBySlug(tenant);
+  if (findSalonBySlugFound(lookup)) {
+    const salon = findSalonBySlugRecord(lookup);
     return (
       <TenantPending
         project={{
-          id: salon.id,
-          name: salon.name,
+          id: salon!.id,
+          name: salon!.name,
           kind: "custom",
           status: "building",
           touchedMinutesAgo: 0,

@@ -12,6 +12,7 @@ import { ActionBar } from "@/components/ui/ActionBar";
 import { Button } from "@/components/ui/Button";
 import { useBooking, type PayMethod } from "@/lib/booking/store";
 import { createBooking, getBookings } from "@/lib/data/bookings";
+import { classifySave, isSaved } from "@/lib/save-state";
 import { getMaster, getService } from "@/lib/data/salon";
 import { formatDayMonth, formatDuration, formatSum, fromIsoDate } from "@/lib/format";
 import { useLocale } from "@/lib/i18n/context";
@@ -142,14 +143,17 @@ type StepIndex = 1 | 2 | 3 | 4;
 
 export function MiniApp() {
   const router = useRouter();
-  const { draft, total, setField, resetDraft, hydrated } = useBooking();
+  const { draft, total, setField, setTime, resetDraft, hydrated } = useBooking();
   const { locale } = useLocale();
   const { t, tr } = useI18n();
-  const { user, haptic } = useTelegram();
+  const { user, webApp, haptic } = useTelegram();
 
   const [open, setOpen] = useState(1);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  /* A refused attempt explains itself in two short lines. The server's own
+     text is never quoted: it is machinery, and the customer needs to know
+     what happened to their answers, not what the API said. */
+  const [failure, setFailure] = useState<{ message: string; hint: string } | null>(null);
   const [activeCount, setActiveCount] = useState(0);
 
   // Read after mount only: the booking store answers with a seed during SSR,
@@ -187,15 +191,47 @@ export function MiniApp() {
 
   const toggle = (index: number) => () => setOpen((current) => (current === index ? 0 : index));
 
+  /**
+   * What a status means for the person filling the form. None of these answers
+   * discards the draft by itself — that is decided by the caller, so a refusal
+   * never costs someone the name and phone they just typed.
+   */
+  function problemFor(status: number) {
+    if (status === 409) {
+      return { message: t("error.slotTaken"), hint: t("error.slotTakenHint") };
+    }
+    if (status === 400 || status === 422) {
+      return { message: t("error.rejected"), hint: t("error.rejectedHint") };
+    }
+    if (status === 401 || status === 403) {
+      return { message: t("error.identity"), hint: t("error.identityHint") };
+    }
+    if (status === 502 || status === 503 || status === 504) {
+      return { message: t("error.unavailable"), hint: t("error.unavailableHint") };
+    }
+    return { message: t("error.generic"), hint: t("error.genericHint") };
+  }
+
   async function submit() {
-    setError(null);
+    setFailure(null);
     setSending(true);
     haptic("press");
 
     try {
+      /* Who is booking is proved by the signed initData Telegram handed the
+         Mini App, not claimed in the payload: the server verifies the
+         signature with the bot token and takes the Telegram id from there.
+         Sending `user.id` would be sending an unsigned number the server is
+         right to ignore. Outside Telegram there is no initData to send, and
+         the server decides what an unverified caller may do. */
+      const initData = webApp?.initData;
+
       const response = await fetch("/api/bookings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(initData ? { "X-Telegram-Init-Data": initData } : {}),
+        },
         body: JSON.stringify({
           masterId: draft.masterId,
           serviceIds: draft.serviceIds,
@@ -203,28 +239,58 @@ export function MiniApp() {
           time: draft.time,
           customerName: draft.name.trim(),
           customerPhone: "+998" + phoneDigits,
-          telegramUserId: user?.id,
         }),
       });
 
-      if (!response.ok) throw new Error("HTTP " + response.status);
+      /* A refused slot is not a failed booking: the data is fine and only the
+         minute was taken, so only the minute is cleared and the time step is
+         reopened. Validation and outage answers keep the whole draft, because
+         it is the thing that would be expensive to retype. */
+      if (!response.ok) {
+        haptic("error");
+        setFailure(problemFor(response.status));
+        if (response.status === 409) {
+          setTime(null);
+          setOpen(3);
+        }
+        setSending(false);
+        return;
+      }
 
-      const { booking } = (await response.json()) as { booking: Booking };
+      /* The endpoint answers with the save outcome alongside the booking. A
+         201 only means it replied — it does not mean a row exists, so the
+         outcome is read rather than assumed. */
+      const result = (await response.json()) as {
+        booking: Booking;
+        persisted?: boolean;
+        warning?: string;
+      };
+      const booking = result.booking;
+      const state = classifySave(result);
+      const stored = isSaved(state);
 
       // Into the shared store, so the slot just taken is blocked for everyone
-      // and the booking appears under "my bookings".
-      createBooking(booking);
+      // and the booking appears under "my bookings" — tagged with whether the
+      // server actually kept it.
+      createBooking(booking, stored ? "server" : "local");
 
-      haptic("success");
+      haptic(stored ? "success" : "error");
       resetDraft();
+
+      /* An unsaved booking goes to the list, never to checkout: asking someone
+         to pay for a record the salon never received would be the worst
+         possible place to hide this state. The list states it outright. */
       router.push(
-        draft.payMethod === "cash"
-          ? "/bookings?created=" + booking.id
-          : "/checkout/" + booking.id + "?provider=" + draft.payMethod,
+        !stored
+          ? "/bookings?created=" + booking.id + "&save=" + state
+          : draft.payMethod === "cash"
+            ? "/bookings?created=" + booking.id + "&save=" + state
+            : "/checkout/" + booking.id + "?provider=" + draft.payMethod,
       );
     } catch {
+      // Offline, aborted, or not JSON: same reassurance, draft untouched.
       haptic("error");
-      setError(t("error.generic"));
+      setFailure({ message: t("error.generic"), hint: t("error.genericHint") });
       setSending(false);
     }
   }
@@ -326,7 +392,13 @@ export function MiniApp() {
           onToggle={toggle(3)}
         >
           <Calendar />
-          <SlotGrid onPicked={() => setOpen(4)} />
+          <SlotGrid
+            onPicked={() => {
+              setOpen(4);
+              // "Choose another time" is answered as soon as a slot is picked.
+              setFailure(null);
+            }}
+          />
         </Section>
 
         <Section
@@ -408,7 +480,12 @@ export function MiniApp() {
           <p className="mt-3 px-5 text-[12px] text-ink-muted">{t("pay.hint")}</p>
         </Section>
 
-        {error && <p className="px-5 pt-4 text-[13px] text-accent">{error}</p>}
+        {failure && (
+          <div role="alert" className="px-5 pt-4">
+            <p className="text-[13px] font-semibold text-accent">{failure.message}</p>
+            <p className="mt-1 text-[12px] leading-snug text-ink-muted">{failure.hint}</p>
+          </div>
+        )}
       </div>
 
       <ActionBar>

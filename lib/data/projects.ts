@@ -1,7 +1,8 @@
 import type { Translated } from "@/lib/types";
+import { ROOT_DOMAIN } from "@/lib/domain/config";
 
 /**
- * Meta-platform demo data: the tenant projects running on uzmini.uz and the
+ * Meta-platform demo data: the tenant projects running on <ROOT_DOMAIN> and the
  * agent pipeline that builds a new one.
  *
  * Replace PROJECTS with a Supabase query once the platform tables exist; the
@@ -25,7 +26,7 @@ export interface Project {
   touchedMinutesAgo: number;
 }
 
-export const ROOT_DOMAIN = "uzmini.uz";
+export { ROOT_DOMAIN };
 
 export function subdomainOf(project: Project): string {
   return `${project.id}.${ROOT_DOMAIN}`;

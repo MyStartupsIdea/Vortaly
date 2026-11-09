@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ROOT_DOMAIN, tenantHost, tenantUrl } from "@/lib/domain/config";
 import {
   findSalonBySlug,
+  findSalonBySlugFound,
+  findSalonBySlugRecord,
+  findSalonBySlugUnavailable,
   isValidSlug,
   validateSlug,
   isNetworkError,
@@ -28,7 +32,6 @@ import type { SalonRecord } from "@/lib/supabase/salons";
  *    unavailable" rather than 404 "not found", so callers can distinguish
  *    between "tenant does not exist" and "the platform is degraded".
  */
-
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ slug: string }> },
@@ -63,12 +66,13 @@ export async function GET(
   }
 
   // --- Tenant lookup ---
-  let salon: SalonRecord | null;
+  let lookup: Awaited<ReturnType<typeof findSalonBySlug>>;
   try {
-    salon = await findSalonBySlug(slug);
+    lookup = await findSalonBySlug(slug);
   } catch (err) {
-    // findSalonBySlug catches its own network errors and returns null, but
-    // be defensive: if something propagates out, degrade.
+    // findSalonBySlug catches its own network errors and returns a
+    // structured result, but be defensive: if something propagates out,
+    // degrade.
     if (isNetworkError(err)) {
       return NextResponse.json(
         {
@@ -86,14 +90,38 @@ export async function GET(
     );
   }
 
-  if (!salon) {
+  if (findSalonBySlugUnavailable(lookup)) {
+    return NextResponse.json(
+      {
+        error: "Service temporarily unavailable",
+        slug,
+        hint: "Supabase appears to be unreachable; the tenant may exist but cannot be verified right now.",
+      },
+      { status: 503 },
+    );
+  }
+
+  if (!findSalonBySlugFound(lookup)) {
     return NextResponse.json(
       {
         error: "Tenant not found",
         slug,
-        hint: "Point DNS for <slug>.uzmini.uz first, or create the tenant via POST /api/admin/salons.",
+        hint: `Point DNS for <slug>.${ROOT_DOMAIN} first, or create the tenant via POST /api/admin/salons.`,
       },
       { status: 404 },
+    );
+  }
+
+  // Narrow to the successful-landing branch where the record is guaranteed.
+  const salon = findSalonBySlugRecord(lookup);
+  if (!salon) {
+    return NextResponse.json(
+      {
+        error: "Internal error",
+        slug,
+        hint: "Tenant lookup returned success but no record shape — please retry later.",
+      },
+      { status: 500 },
     );
   }
 
@@ -101,18 +129,18 @@ export async function GET(
     tenant: {
       id: salon.id,
       name: salon.name,
-      subdomain: `${salon.id}.uzmini.uz`,
-      url: `https://${salon.id}.uzmini.uz`,
-      taglineRu: salon.tagline_ru,
-      taglineUz: salon.tagline_uz,
-      addressRu: salon.address_ru,
-      addressUz: salon.address_uz,
+      subdomain: tenantHost(salon.id),
+      url: tenantUrl(salon.id),
+      taglineRu: salon.tagline.ru,
+      taglineUz: salon.tagline.uz,
+      addressRu: salon.address.ru,
+      addressUz: salon.address.uz,
       phone: salon.phone,
       rating: salon.rating,
-      reviewCount: salon.review_count,
-      openFrom: salon.open_from,
-      openTo: salon.open_to,
-      createdAt: salon.created_at,
+      reviewCount: salon.reviewCount,
+      openFrom: salon.openFrom,
+      openTo: salon.openTo,
+      createdAt: salon.createdAt,
     },
     resolvedBy: "api",
   });

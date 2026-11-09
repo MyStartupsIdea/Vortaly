@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { LANGUAGE_SWITCHER } from "@/components/admin/UzMiniAdminLanguageSwitcher";
 import { salon } from "@/lib/data/salon";
 import { formatPhone } from "@/lib/format";
@@ -60,7 +61,6 @@ export function UzMiniAdminShell({ children }: { children: ReactNode }) {
                 </svg>
               }
               label="recordings"
-              currentPath="/admin"
             />
             <AdminNavItem
               href="/admin/services"
@@ -70,7 +70,6 @@ export function UzMiniAdminShell({ children }: { children: ReactNode }) {
                 </svg>
               }
               label="services"
-              currentPath="/admin/services"
             />
             <AdminNavItem
               href="/admin/settings"
@@ -80,7 +79,6 @@ export function UzMiniAdminShell({ children }: { children: ReactNode }) {
                 </svg>
               }
               label="settings"
-              currentPath="/admin/settings"
             />
           </nav>
 
@@ -105,11 +103,28 @@ export function UzMiniAdminShell({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Whether a nav item points at the page being viewed.
+ *
+ * Each item previously received a `currentPath` equal to its own `href`, so
+ * the comparison was always true and every item rendered as active at once.
+ * The route now comes from the router instead.
+ *
+ * "/admin" is matched exactly, because as a prefix it would also claim every
+ * page nested under it; the deeper items match their own subtree so that a
+ * future /admin/services/<id> still highlights Services.
+ */
+function isActive(href: string, pathname: string | null): boolean {
+  if (!pathname) return false;
+  const path = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  if (href === "/admin") return path === "/admin";
+  return path === href || path.startsWith(`${href}/`);
+}
+
 interface AdminNavItemProps {
   href: string;
   icon: React.ReactNode;
   label: keyof typeof adminNavLabels.ru;
-  currentPath: string;
 }
 
 const adminNavLabels = {
@@ -125,9 +140,10 @@ const adminNavLabels = {
   },
 } as const;
 
-function AdminNavItem({ href, icon, label, currentPath }: AdminNavItemProps) {
+function AdminNavItem({ href, icon, label }: AdminNavItemProps) {
   const { locale } = useI18n();
-  const active = currentPath === href;
+  const pathname = usePathname();
+  const active = isActive(href, pathname);
   const text = adminNavLabels[locale][label];
 
   return (

@@ -19,7 +19,13 @@ export async function listSalons(): Promise<ListSalonsResult> {
   if (!response.ok) {
     return { salons: [], warning: `GET /api/admin/salons -> ${response.status}` };
   }
-  return (await response.json()) as ListSalonsResult;
+  const body = (await response.json()) as ListSalonsResult;
+  // The admin endpoint has been hardened to reject unauthenticated admin access;
+  // without an approved platform-admin secret the server currently returns 401.
+  if (body?.warning?.startsWith("access denied")) {
+    return { salons: [], warning: body.warning };
+  }
+  return body;
 }
 
 export interface ProvisionInput {

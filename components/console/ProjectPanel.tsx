@@ -4,6 +4,8 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { SalonRecord } from "@/lib/api/salons";
 import { PROJECTS, ROOT_DOMAIN, type ProjectStatus } from "@/lib/data/projects";
+import { SaveBadge } from "@/components/ui/SaveBadge";
+import { classifySave, SAVE_STATE_DOT, type SaveState } from "@/lib/save-state";
 import { formatPhone } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/provider";
 import { cx } from "@/lib/cx";
@@ -40,6 +42,13 @@ interface Row {
   slug: string;
   name: string;
   status: ProjectStatus;
+  /**
+   * Set only for a project created in this session, where the console knows
+   * whether the row reached the database. When it is anything but `saved` it
+   * replaces the status label: "not saved" is not a build status, and showing
+   * it as `failed` would blame the pipeline for a datastore problem.
+   */
+  saveState?: SaveState;
   note: string;
   progress?: number;
   /** Null when there is no tenant to open yet. */
@@ -61,6 +70,8 @@ function toRow(salon: SalonRecord): Row {
 function RowBody({ row }: { row: Row }) {
   const { t } = useI18n();
 
+  const unsaved = row.saveState !== undefined && row.saveState !== "saved";
+
   return (
     <>
       <span className="flex items-center gap-2.5">
@@ -68,8 +79,8 @@ function RowBody({ row }: { row: Row }) {
           aria-hidden
           className={cx(
             "size-2 flex-none rounded-full",
-            DOT[row.status],
-            row.status === "building" && "motion-safe:animate-pulse",
+            unsaved ? SAVE_STATE_DOT[row.saveState!] : DOT[row.status],
+            !unsaved && row.status === "building" && "motion-safe:animate-pulse",
           )}
         />
         <span className="min-w-0 flex-1 truncate font-display text-[14px] font-bold tracking-[-0.01em]">
@@ -87,9 +98,13 @@ function RowBody({ row }: { row: Row }) {
       </span>
 
       <span className="mt-1 flex items-baseline gap-2 pl-[18px] text-[11px] text-ink-muted">
-        <span className={row.status === "failed" ? "text-accent" : undefined}>
-          {t(STATUS_KEY[row.status])}
-        </span>
+        {unsaved ? (
+          <SaveBadge state={row.saveState!} variant="dot" />
+        ) : (
+          <span className={row.status === "failed" ? "text-accent" : undefined}>
+            {t(STATUS_KEY[row.status])}
+          </span>
+        )}
         {row.note && (
           <>
             <span aria-hidden className="h-2.5 w-px bg-hairline" />
@@ -119,7 +134,7 @@ function ProjectRow({ row }: { row: Row }) {
         <div
           className={cx(
             "block border-b border-hairline px-4 py-3",
-            row.fresh && "bg-accent/8",
+            row.fresh && "bg-saffron/8",
           )}
         >
           {children}
@@ -162,20 +177,29 @@ export function ProjectPanel({ salons, warning, card, onRefresh }: Props) {
 
   // The freshly created project is pinned on top. Once the refetch brings it
   // back from the database the row is already there, so it is not duplicated.
+  const cardState = card ? classifySave(card) : null;
+
   const rows: Row[] =
-    card && !baseRows.some((row) => row.slug === card.slug)
+    card && cardState && !baseRows.some((row) => row.slug === card.slug)
       ? [
           {
             slug: card.slug,
             name: card.name,
-            status: card.persisted ? "live" : "failed",
-            note: card.persisted ? t("console.touchedNow") : t("run.notPersisted"),
-            href: card.persisted ? `/${card.slug}` : null,
+            // "live" is only ever claimed for a row that is really in the
+            // database; otherwise saveState carries the outcome.
+            status: cardState === "saved" ? "live" : "queued",
+            saveState: cardState,
+            note: cardState === "saved" ? t("console.touchedNow") : "",
+            href: cardState === "saved" ? `/${card.slug}` : null,
             fresh: true,
           },
           ...baseRows,
         ]
-      : baseRows.map((row) => (row.slug === card?.slug ? { ...row, fresh: true } : row));
+      : baseRows.map((row) =>
+          row.slug === card?.slug
+            ? { ...row, fresh: true, saveState: cardState ?? undefined }
+            : row,
+        );
 
   return (
     <aside className="flex h-full min-h-0 flex-col border-hairline lg:border-r">

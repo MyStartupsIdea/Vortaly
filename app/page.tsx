@@ -7,6 +7,7 @@ import { ProjectPanel, type SessionCard } from "@/components/console/ProjectPane
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { listSalons, provisionSalon, type SalonRecord } from "@/lib/api/salons";
 import { ROOT_DOMAIN } from "@/lib/data/projects";
+import { classifySave } from "@/lib/save-state";
 import { useI18n } from "@/lib/i18n/provider";
 
 /** Pace of the terminal. Events may arrive faster; rendering stays readable. */
@@ -75,15 +76,18 @@ export default function ConsolePage() {
       });
 
       let failed: string | null = null;
+      // The request shown in the review step is the source of truth. AI
+      // suggestions must never replace values the operator has confirmed.
+      const effectiveRequest = request;
 
       await provisionSalon(
         {
-          name: request.name,
-          phoneNational: request.phoneNational,
-          kind: request.kind,
-          brief: request.brief,
-          taglineRu: request.taglineRu,
-          taglineUz: request.taglineUz,
+          name: effectiveRequest.name,
+          phoneNational: effectiveRequest.phoneNational,
+          kind: effectiveRequest.kind,
+          brief: effectiveRequest.brief,
+          taglineRu: effectiveRequest.taglineRu,
+          taglineUz: effectiveRequest.taglineUz,
         },
         (event) => {
           if (event.type === "step") {
@@ -104,7 +108,7 @@ export default function ConsolePage() {
             setRun((r) => r && { ...r, slug: event.slug });
             setCard({
               slug: event.slug,
-              name: request.name,
+              name: effectiveRequest.name,
               subdomain: event.subdomain,
               persisted: event.persisted,
               warning: event.warning,
@@ -145,6 +149,11 @@ export default function ConsolePage() {
     setRun(null);
   }, []);
 
+  /* What the run actually achieved, as distinct from whether it finished.
+     Null while nothing has been created in this session yet. */
+  const outcome = card ? classifySave(card) : null;
+  const seconds = run?.finishedMs !== null && run ? (run.finishedMs / 1000).toFixed(1) : "0";
+
   return (
     <div className="flex min-h-screen flex-col bg-surface-sunken lg:h-dvh lg:overflow-hidden">
       <header className="flex flex-none items-center justify-between gap-4 border-b border-hairline bg-surface px-4 py-3 lg:px-6">
@@ -178,14 +187,20 @@ export default function ConsolePage() {
         </div>
 
         <div className="order-3 min-h-[360px] lg:min-h-0">
-          <AgentLog run={run} />
+          <AgentLog run={run} saveState={outcome} />
         </div>
       </div>
 
-      {/* Outcome announcement; the log itself is a polite live region. */}
+      {/* Outcome announcement; the log itself is a polite live region.
+          A finished stream alone is never announced as a success — screen
+          reader users get the same distinction the sighted UI makes. */}
       <p className="sr-only" role="status">
         {run && run.finishedMs !== null
-          ? t("console.done", { seconds: (run.finishedMs / 1000).toFixed(1) })
+          ? outcome === "saved"
+            ? t("console.outcomeSaved", { seconds })
+            : outcome
+              ? t("console.outcomeUnsaved", { seconds })
+              : t("console.streamDone", { seconds })
           : ""}
       </p>
     </div>
