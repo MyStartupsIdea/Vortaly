@@ -205,6 +205,55 @@ export function originCounts(): Record<BookingOrigin, number> {
   const counts: Record<BookingOrigin, number> = { server: 0, local: 0, demo: 0 };
   for (const booking of resolvedBookings()) counts[booking.origin] += 1;
   return counts;
+} /**
+ * Merge records fetched from `/api/bookings` into the browser store without
+ * discarding local-only or demo records.
+ *
+ * Only exact server-side matches (same `id`) are updated. New ids are inserted
+ * as `server` records. Records that exist only locally are kept, and demo rows
+ * are never promoted or removed because of the API response.
+ */
+export function mergeServerIntoLocal(serverBookings: Booking[]): StoredBooking[] {
+  const local = resolvedBookings();
+  const byId = new Map<string, StoredBooking>();
+
+  for (const b of local) {
+    byId.set(b.id, b);
+  }
+
+  for (const s of serverBookings) {
+    const existing = byId.get(s.id);
+
+    if (!existing) {
+      byId.set(
+        s.id,
+        defaults({
+          ...s,
+          origin: "server",
+          createdAt: s.createdAt ?? nowIso(),
+        }), 
+      );
+      continue;
+    }
+
+    if (existing.origin === "demo") {
+      continue;
+    }
+
+    const kept = {
+      ...existing,
+      ...s,
+      origin: "server" as BookingOrigin,
+      createdAt: s.createdAt ?? existing.createdAt,
+    };
+
+    byId.set(s.id, kept);
+  }
+
+  const merged = Array.from(byId.values());
+  saveBookings(merged);
+  clientBookings = merged;
+  return merged;
 }
 
 /**

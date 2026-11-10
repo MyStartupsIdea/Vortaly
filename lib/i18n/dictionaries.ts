@@ -120,6 +120,9 @@ const ru = {
 
   /* Message shown when cancel is in flight, per booking row. */
   "booking.cancelInProgress": "Отмена…",
+  "booking.unavailable": "Пока не могу показать записи",
+  "booking.unavailableHint": "Попробуйте ещё раз",
+  "booking.retry": "Обновить",
 
   "action.next": "Далее",
   "action.back": "Назад",
@@ -436,6 +439,9 @@ const uz: Record<MessageKey, string> = {
 
   /* Message shown when cancel is in flight, per booking row. */
   "booking.cancelInProgress": "Bekor qilmoqdamiz…",
+  "booking.unavailable": "Hozircha bandlovlarni ko'rsatib bera olmayman",
+  "booking.unavailableHint": "Qayta urinib ko'ring",
+  "booking.retry": "Yangilash",
 
   "action.next": "Keyingi",
   "action.back": "Orqaga",

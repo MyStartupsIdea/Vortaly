@@ -114,6 +114,8 @@ create table if not exists salon_owners (
   unique (uid, salon_id)
 );
 
+alter table salon_owners enable row level security;
+
 create index if not exists salon_owners_uid_idx on salon_owners (uid);
 
 drop policy if exists "owners read own rows" on salon_owners;

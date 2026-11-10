@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { cancelBooking, getBookings } from "@/lib/data/bookings";
+import { cancelBooking, getBookings, mergeServerIntoLocal } from "@/lib/data/bookings";
 import { getMaster, getService } from "@/lib/data/salon";
 import { formatDayMonth, formatDuration, formatSum, fromIsoDate } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/provider";
@@ -112,18 +112,208 @@ function BookingsContent() {
   const params = useSearchParams();
   const { t } = useI18n();
 
-  // Loaded after mount: the store serves a seed during SSR, so reading it in
-  // render would put the wrong list into the static HTML.
   const [bookings, setBookings] = useState<Booking[] | null>(null);
-  useEffect(() => setBookings(getBookings()), []);
+  const [loading, setLoading] = useState(true);
+  const [unavailable, setUnavailable] = useState(false);
+  const [retryToken, setRetryToken] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const readServer = async () => {
+      setLoading(true);
+      setUnavailable(false);
+
+      try {
+        const response = await fetch("/api/bookings", {
+          headers: {
+            ...(window.Telegram?.WebApp?.initData
+              ? { "X-Telegram-Init-Data": window.Telegram.WebApp.initData }
+              : {}),
+          },
+        });
+
+        if (!response.ok) {
+          if (cancelled) return;
+          // The server refused or failed (401/403/404/409/503). Keep showing
+          // this browser's own records: an unreadable server must never empty
+          // the list, and the page must not sit on the skeleton for ever.
+          setBookings([...getBookings()]);
+          setUnavailable(true);
+          setLoading(false);
+          return;
+        }
+
+        const json = (await response.json()) as { bookings?: NonNullable<unknown>[] };
+        if (!Array.isArray(json.bookings)) {
+          if (cancelled) return;
+          setBookings([...getBookings()]);
+          setUnavailable(true);
+          setLoading(false);
+          return;
+        }
+
+        if (cancelled) return;
+        const merged = mergeServerIntoLocal(json.bookings as Booking[]);
+        setBookings(merged);
+        setLoading(false);
+      } catch {
+        if (cancelled) return;
+        // Network drop, offline or aborted — same rule as a refusal above.
+        setBookings([...getBookings()]);
+        setUnavailable(true);
+        setLoading(false);
+      }
+    };
+
+    readServer();
+    return () => {
+      cancelled = true;
+    };
+  }, [retryToken]);
 
   const hydrated = bookings !== null;
   const createdId = params.get("created");
 
-  const cancel = (id: string) => {
+  const cancel = async (id: string) => {
     cancelBooking(id);
+    // A fresh array: `getBookings()` returns the store's own array, which
+    // `cancelBooking` has just mutated in place, so handing it straight to
+    // `setBookings` is the reference React already holds and the row would
+    // not re-render.
     setBookings([...getBookings()]);
+
+    try {
+      const response = await fetch(`/api/bookings/${encodeURIComponent(id)}/cancel`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(window.Telegram?.WebApp?.initData
+            ? { "X-Telegram-Init-Data": window.Telegram.WebApp.initData }
+            : {}),
+        },
+      });
+
+      if (response.ok) {
+        // Re-read the local store instead of merging it into itself:
+        // `mergeServerIntoLocal` stamps everything it is handed as `server`,
+        // so passing local records would claim Supabase had stored them.
+        setBookings([...getBookings()]);
+      }
+    } catch {
+      // Network drop, offline, or aborted request — keep the optimistic local
+      // snapshot instead of throwing away the user's tap.
+    }
   };
+
+  if (!hydrated) {
+    return (
+      <main className="min-h-screen pb-10">
+        <div className="flex items-center justify-between gap-3 border-b border-hairline px-5 pt-5 pb-4">
+          <div className="min-w-0">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="text-[13px] font-semibold text-brand"
+            >
+              {t("nav.salon")}
+            </button>
+            <h1 className="font-display text-[22px] leading-tight font-bold tracking-[-0.02em]">
+              {t("nav.bookings")}
+            </h1>
+          </div>
+          <LanguageSwitcher />
+        </div>
+
+        <div className="space-y-2 px-5 pt-5">
+          {[0, 1].map((i) => (
+            <div key={i} className="h-36 animate-pulse rounded-card bg-surface-sunken" />
+          ))}
+        </div>
+      </main>
+    );
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen pb-10">
+        <div className="flex items-center justify-between gap-3 border-b border-hairline px-5 pt-5 pb-4">
+          <div className="min-w-0">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="text-[13px] font-semibold text-brand"
+            >
+              {t("nav.salon")}
+            </button>
+            <h1 className="font-display text-[22px] leading-tight font-bold tracking-[-0.02em]">
+              {t("nav.bookings")}
+            </h1>
+          </div>
+          <LanguageSwitcher />
+        </div>
+
+        <div className="space-y-2 px-5 pt-5">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-36 animate-pulse rounded-card bg-surface-sunken" />
+          ))}
+        </div>
+      </main>
+    );
+  }
+
+  if (unavailable) {
+    return (
+      <main className="min-h-screen pb-10">
+        <div className="flex items-center justify-between gap-3 border-b border-hairline px-5 pt-5 pb-4">
+          <div className="min-w-0">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="text-[13px] font-semibold text-brand"
+            >
+              {t("nav.salon")}
+            </button>
+            <h1 className="font-display text-[22px] leading-tight font-bold tracking-[-0.02em]">
+              {t("nav.bookings")}
+            </h1>
+          </div>
+          <LanguageSwitcher />
+        </div>
+
+        <div className="mx-5 mt-4 rounded-card border border-accent/20 bg-surface-sunken p-4">
+          <p className="font-display text-[16px] font-bold text-ink">{t("booking.unavailable")}</p>
+          <p className="mt-1 text-[13px] text-ink-muted">{t("booking.unavailableHint")}</p>
+          <Button className="mt-5" onClick={() => setRetryToken((n) => n + 1)}>
+            {t("booking.retry")}
+          </Button>
+        </div>
+
+        {bookings!.length === 0 ? (
+          <div className="px-5 pt-16 text-center">
+            <p className="font-display text-[18px] font-bold">{t("booking.empty")}</p>
+            <p className="mx-auto mt-2 max-w-[28ch] text-[14px] text-ink-muted">
+              {t("booking.emptyHint")}
+            </p>
+            <Button className="mt-6" onClick={() => router.push("/")}>
+              {t("booking.emptyCta")}
+            </Button>
+          </div>
+        ) : (
+          <ul className="space-y-2 px-5 pt-4">
+            {bookings!.map((booking) => (
+              <BookingRow
+                key={booking.id}
+                booking={booking}
+                justCreated={booking.id === createdId}
+                onCancel={() => cancel(booking.id)}
+              />
+            ))}
+          </ul>
+        )}
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen pb-10">
@@ -150,13 +340,7 @@ function BookingsContent() {
         </div>
       )}
 
-      {!hydrated ? (
-        <div className="space-y-2 px-5 pt-5">
-          {[0, 1].map((i) => (
-            <div key={i} className="h-36 animate-pulse rounded-card bg-surface-sunken" />
-          ))}
-        </div>
-      ) : bookings!.length === 0 ? (
+      {bookings!.length === 0 ? (
         <div className="px-5 pt-16 text-center">
           <p className="font-display text-[18px] font-bold">{t("booking.empty")}</p>
           <p className="mx-auto mt-2 max-w-[28ch] text-[14px] text-ink-muted">
