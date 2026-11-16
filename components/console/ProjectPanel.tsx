@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
-import type { SalonRecord } from "@/lib/api/salons";
+import { useState, type FormEvent, type ReactNode } from "react";
+import type { SalonRecord, UnlockResult } from "@/lib/api/salons";
 import { PROJECTS, ROOT_DOMAIN, type ProjectStatus } from "@/lib/data/projects";
 import { SaveBadge } from "@/components/ui/SaveBadge";
 import { classifySave, SAVE_STATE_DOT, type SaveState } from "@/lib/save-state";
@@ -35,6 +35,8 @@ export interface SessionCard {
   subdomain: string;
   persisted: boolean;
   warning?: string;
+  /** Path of the site builder, when a site draft was generated. */
+  builder?: string;
 }
 
 /** One row shape for real salons, the session card and the demo fallback. */
@@ -63,7 +65,9 @@ function toRow(salon: SalonRecord): Row {
     // A salon that answers from the salons table is serving traffic.
     status: "live",
     note: salon.phone ? formatPhone(salon.phone.replace(/^\+/, "")) : "",
-    href: `/${salon.id}`,
+    // The console is the operator's tool: a project opens in its builder,
+    // which links on to the public page once something is published.
+    href: `/builder/${salon.id}`,
   };
 }
 
@@ -152,17 +156,136 @@ interface Props {
   warning: string | null;
   card: SessionCard | null;
   onRefresh: () => void;
+  /**
+   * The admin API refused this browser. Distinct from an empty list: the
+   * platform may well have tenants, we are simply not allowed to read them,
+   * so neither an empty state nor the demo projects may stand in for them.
+   */
+  unauthorized: boolean;
+  /** False when the deployment has no PLATFORM_ADMIN_SECRET at all. */
+  authConfigured: boolean;
+  /** True when this browser holds a valid admin session. */
+  authorized: boolean;
+  onUnlock: (secret: string) => Promise<UnlockResult>;
+  onLock: () => void;
 }
 
-export function ProjectPanel({ salons, warning, card, onRefresh }: Props) {
+/**
+ * Exchanges the platform-admin secret for a server-side session.
+ *
+ * The field is a password input, its value lives only in this component's
+ * state for the duration of the submit, and it is cleared on success. The
+ * secret is never written to localStorage, never put in a URL, and never
+ * becomes part of the bundle — the only thing the browser keeps is the
+ * httpOnly cookie the server sets, which this code cannot read.
+ */
+function UnlockForm({
+  authConfigured,
+  onUnlock,
+}: {
+  authConfigured: boolean;
+  onUnlock: (secret: string) => Promise<UnlockResult>;
+}) {
+  const { t } = useI18n();
+  const [secret, setSecret] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [failure, setFailure] = useState<Exclude<UnlockResult, { ok: true }>["reason"] | null>(
+    null,
+  );
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!secret || busy) return;
+    setBusy(true);
+    setFailure(null);
+    const result = await onUnlock(secret);
+    setBusy(false);
+    if (result.ok) {
+      setSecret("");
+      return;
+    }
+    setFailure(result.reason);
+  };
+
+  const message =
+    failure === "denied"
+      ? t("list.unlockDenied")
+      : failure === "throttled"
+        ? t("list.unlockThrottled")
+        : failure === "not_configured"
+          ? t("list.notConfigured")
+          : failure === "unreachable"
+            ? t("list.unlockUnreachable")
+            : null;
+
+  return (
+    <form onSubmit={submit} className="mx-4 mb-3 space-y-2">
+      <p className="rounded-tile border border-saffron/40 bg-saffron/10 px-3 py-2 text-[11px] leading-snug">
+        {t("list.locked")}
+      </p>
+
+      {authConfigured ? (
+        <>
+          <p className="text-[11px] leading-snug text-ink-muted">{t("list.lockedHint")}</p>
+          <input
+            type="password"
+            value={secret}
+            onChange={(event) => setSecret(event.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            disabled={busy}
+            placeholder={t("list.secretLabel")}
+            aria-label={t("list.secretLabel")}
+            className="h-9 w-full rounded-md border border-hairline bg-surface-sunken px-2 font-mono text-[12px] text-ink placeholder:text-ink-muted"
+          />
+          <button
+            type="submit"
+            disabled={busy || secret.length === 0}
+            className="h-9 w-full rounded-md bg-brand text-[12px] font-semibold text-white disabled:opacity-45"
+          >
+            {busy ? t("list.unlocking") : t("list.unlock")}
+          </button>
+        </>
+      ) : (
+        /* Nothing to type: with no secret on the server, no value can open the
+           admin API. Offering a field would invite guessing at a value that
+           does not exist. */
+        <p className="text-[11px] leading-snug text-ink-muted">{t("list.notConfigured")}</p>
+      )}
+
+      {message && (
+        <p role="status" className="text-[11px] leading-snug text-accent">
+          {message}
+        </p>
+      )}
+    </form>
+  );
+}
+
+export function ProjectPanel({
+  salons,
+  warning,
+  card,
+  onRefresh,
+  unauthorized,
+  authConfigured,
+  authorized,
+  onUnlock,
+  onLock,
+}: Props) {
   const { t } = useI18n();
 
   const loading = salons === null;
   const live = salons ?? [];
 
-  // With nothing to show, fall back to the demo projects rather than an empty
-  // column — and say so, so nobody mistakes them for real tenants.
-  const usingDemo = !loading && live.length === 0 && !card;
+  /* With nothing to show, fall back to the demo projects rather than an empty
+     column — and say so, so nobody mistakes them for real tenants.
+
+     A refused request is not "nothing to show": the list is unknown, not
+     empty, so the demo rows stay out and the panel asks for the credential
+     instead. Standing demo projects in for a 401 would claim the platform has
+     these five tenants when we have not been allowed to look. */
+  const usingDemo = !loading && !unauthorized && live.length === 0 && !card;
 
   const baseRows: Row[] = usingDemo
     ? PROJECTS.map((project) => ({
@@ -190,7 +313,7 @@ export function ProjectPanel({ salons, warning, card, onRefresh }: Props) {
             status: cardState === "saved" ? "live" : "queued",
             saveState: cardState,
             note: cardState === "saved" ? t("console.touchedNow") : "",
-            href: cardState === "saved" ? `/${card.slug}` : null,
+            href: card.builder ?? (cardState === "saved" ? `/builder/${card.slug}` : null),
             fresh: true,
           },
           ...baseRows,
@@ -225,6 +348,8 @@ export function ProjectPanel({ salons, warning, card, onRefresh }: Props) {
         </p>
       )}
 
+      {unauthorized && <UnlockForm authConfigured={authConfigured} onUnlock={onUnlock} />}
+
       <ul className="min-h-0 flex-1 overflow-y-auto border-t border-hairline">
         {loading && rows.length === 0 ? (
           <li className="px-4 py-4">
@@ -239,7 +364,11 @@ export function ProjectPanel({ salons, warning, card, onRefresh }: Props) {
             </span>
           </li>
         ) : rows.length === 0 ? (
-          <li className="px-4 py-6 text-[12px] text-ink-muted">{t("list.empty")}</li>
+          /* "No projects" is a claim about the platform, so it is only made
+             when the server actually answered with an empty list. */
+          <li className="px-4 py-6 text-[12px] text-ink-muted">
+            {unauthorized ? t("list.locked") : t("list.empty")}
+          </li>
         ) : (
           rows.map((row) => <ProjectRow key={row.slug} row={row} />)
         )}
@@ -254,6 +383,15 @@ export function ProjectPanel({ salons, warning, card, onRefresh }: Props) {
           <p className="mt-1 font-mono text-[10px] leading-snug break-words text-ink-muted/70">
             {warning}
           </p>
+        )}
+        {authorized && (
+          <button
+            type="button"
+            onClick={onLock}
+            className="mt-2 text-[11px] font-semibold text-ink-muted hover:text-ink"
+          >
+            {t("list.lock")}
+          </button>
         )}
       </div>
     </aside>

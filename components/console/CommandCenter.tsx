@@ -353,15 +353,22 @@ export function CommandCenter({ onCreate, busy, created, error, onReset }: Props
             </p>
           )}
 
+          {created.builder && (
+            <p className="mt-3 max-w-[48ch] text-[13px] leading-snug text-ink-muted">
+              {t("b.createdHint")}
+            </p>
+          )}
+
           <div className="mt-7 flex flex-wrap items-center gap-2">
-            {/* Only offered when the row really landed: without a database there
-                is no tenant to open, and a dead link would be worse than none. */}
-            {stored && (
+            {/* Offered whenever a site draft exists to open. The public page is
+                not linked from here: nothing is public until it is published
+                from the builder. */}
+            {created.builder && (
               <Link
-                href={`/${created.slug}`}
+                href={created.builder}
                 className="glaze-brand rounded-full px-6 py-3.5 text-[15px] font-semibold text-brand-ink"
               >
-                {t("form.openTenant")}
+                {t("b.open")}
               </Link>
             )}
             <Button variant="secondary" onClick={startOver}>

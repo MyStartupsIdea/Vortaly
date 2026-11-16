@@ -2,8 +2,8 @@
 
 import { useMemo } from "react";
 import { useBooking } from "@/lib/booking/store";
-import { buildSlots, groupByBlock } from "@/lib/booking/slots";
-import { mastersForServices } from "@/lib/data/salon";
+import { buildSlots, groupByBlock, type BusySpan } from "@/lib/booking/slots";
+import { useCatalog, useDraftTotal } from "@/lib/booking/catalog";
 import { useI18n } from "@/lib/i18n/provider";
 import { useTelegram } from "@/lib/telegram-provider";
 import { cx } from "@/lib/cx";
@@ -14,8 +14,13 @@ import { cx } from "@/lib/cx";
  * This is the one loud element in the app, because picking a time is the whole
  * point of the screen.
  */
-export function SlotGrid({ onPicked }: { onPicked?: () => void } = {}) {
-  const { draft, setTime, total } = useBooking();
+export function SlotGrid({
+  onPicked,
+  taken,
+}: { onPicked?: () => void; taken?: BusySpan[] } = {}) {
+  const { draft, setTime } = useBooking();
+  const { masters } = useCatalog();
+  const total = useDraftTotal();
   const { t } = useI18n();
   const { haptic } = useTelegram();
 
@@ -25,9 +30,11 @@ export function SlotGrid({ onPicked }: { onPicked?: () => void } = {}) {
       masterId: draft.masterId,
       isoDate: draft.date,
       durationMin: total.minutes,
-      candidates: mastersForServices(draft.serviceIds),
+      masters,
+      taken,
+      candidates: masters.filter((m) => draft.serviceIds.every((id) => m.serviceIds.includes(id))),
     });
-  }, [draft.date, draft.masterId, draft.serviceIds, total.minutes]);
+  }, [draft.date, draft.masterId, draft.serviceIds, total.minutes, masters, taken]);
 
   const blocks = groupByBlock(slots);
   const anyFree = slots.some((s) => s.available);

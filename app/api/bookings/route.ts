@@ -11,7 +11,14 @@ import {
   identityFailure,
 } from "@/lib/domain/customer-bookings";
 import { resolvedSalonId, tenantNotResolved } from "@/lib/domain/tenant-context";
-import { createBooking, listBookings, resolveBookingComposition } from "@/lib/supabase/bookings";
+import {
+  createBooking,
+  listBookings,
+  resolveBookingComposition,
+  type CompositionOutcome,
+} from "@/lib/supabase/bookings";
+import { loadSite } from "@/lib/builder/store";
+import type { SiteSpec } from "@/lib/builder/spec";
 import { optionalTelegramUser, requireTelegramUser } from "@/lib/telegram/init-data";
 import type { Booking } from "@/lib/types";
 
@@ -125,6 +132,29 @@ function asPhone(value: unknown): string | null {
   return `+${digits}`;
 }
 
+/** The spec-backed twin of `resolveBookingComposition`, with the same outcomes. */
+function composeFromSpec(
+  spec: SiteSpec,
+  masterId: string,
+  serviceIds: string[],
+): CompositionOutcome {
+  const member = spec.staff.find((entry) => entry.id === masterId);
+  if (!member) return { ok: false, reason: "unknown_master" };
+
+  let durationMin = 0;
+  let totalSum = 0;
+  for (const id of serviceIds) {
+    const item = spec.items.find((entry) => entry.id === id && entry.bookable);
+    if (!item) return { ok: false, reason: "unknown_service" };
+    if (!member.itemIds.includes(id)) return { ok: false, reason: "master_cannot_serve" };
+    durationMin += item.durationMin;
+    totalSum += item.priceSum;
+  }
+  if (!(durationMin > 0)) return { ok: false, reason: "unknown_service" };
+
+  return { ok: true, durationMin, totalSum };
+}
+
 export async function POST(request: Request) {
   // The tenant is checked before the body is even parsed: an unresolved host
   // has no business creating bookings, whatever it is sending.
@@ -179,7 +209,18 @@ export async function POST(request: Request) {
   if (!customerPhone) return invalid("customerPhone");
 
   // ---- Bind the booking contents to the resolved tenant ----
-  const composition = await resolveBookingComposition(salonId, masterId, serviceIds);
+  //
+  // A tenant built by the site builder is priced from its *published* spec:
+  // that is the catalogue its customers were shown. The draft is never used,
+  // so an unpublished price change cannot be booked.
+  // An unreadable site store is treated as "no generated site", so a missing
+  // `sites` table cannot take the table-backed tenants down with it.
+  const site = await loadSite(salonId);
+  const published = site.status === "ok" ? site.site.published : null;
+
+  const composition: CompositionOutcome = published
+    ? composeFromSpec(published, masterId, serviceIds)
+    : await resolveBookingComposition(salonId, masterId, serviceIds);
 
   let durationMin: number;
   let totalSum: number;

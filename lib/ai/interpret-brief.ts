@@ -1,5 +1,6 @@
 import "server-only";
 
+import { AiError, chatJson, type AiFailureCode } from "@/lib/ai/llm";
 import { readBrief } from "@/lib/console/brief";
 import type { ProjectKind } from "@/lib/data/projects";
 
@@ -32,17 +33,15 @@ export interface AiBrief {
 }
 
 /**
- * One provider, one key, one free model — fixed by construction rather than by
- * configuration. `UZMINI_MODEL_ID` is deliberately ignored because it could name
- * a paid model, and `ORCAROUTER_API_KEY_2..5` are never read: this path has no
- * key rotation and no paid fallback, so a provider outage ends in a 503.
+ * The model call goes through the shared provider chain in lib/ai/llm.ts: one
+ * key per provider, failover across providers, no key rotation. This path used
+ * to be pinned to a single provider, so that provider's outage (or a reset
+ * key) took the feature down with nothing to fall back to.
  */
-const MODEL_BASE_URL = "https://api.orcarouter.ai/v1/chat/completions";
-const FREE_MODEL_ID = "deepseek/deepseek-v4-flash-free";
 const ALLOWED_KINDS: ProjectKind[] = ["salon", "cafe", "carwash", "custom"];
 const MODEL_TIMEOUT_MS = 12_000;
 
-export type AiFailureCode = "not_configured" | "unavailable" | "invalid_response" | "timeout";
+export type { AiFailureCode };
 
 /**
  * Carries a closed set of codes and nothing else. Provider status, body and
@@ -103,67 +102,20 @@ function groundedPhone(candidate: unknown, brief: string): string {
   return brief.replace(/\D/g, "").includes(phone) ? phone : "";
 }
 
-function isTimeout(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    (error.name === "TimeoutError" || error.name === "AbortError")
-  );
-}
-
 async function askModel(brief: string): Promise<ModelProposal> {
-  const apiKey = process.env.ORCAROUTER_API_KEY_1;
-  if (!apiKey) throw new AiInterpretError("not_configured");
-
-  let response: Response;
   try {
-    response = await fetch(MODEL_BASE_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: FREE_MODEL_ID,
-        temperature: 0,
-        max_tokens: 180,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: `<brief>\n${brief}\n</brief>` },
-        ],
-      }),
-      signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
-      cache: "no-store",
+    const { data } = await chatJson({
+      system: SYSTEM_PROMPT,
+      user: `<brief>\n${brief}\n</brief>`,
+      // Room for a reasoning model to think before it writes three fields.
+      maxTokens: 1200,
+      timeoutMs: MODEL_TIMEOUT_MS,
+      temperature: 0,
     });
+    return data as ModelProposal;
   } catch (error) {
-    throw new AiInterpretError(isTimeout(error) ? "timeout" : "unavailable");
+    throw new AiInterpretError(error instanceof AiError ? error.code : "unavailable");
   }
-
-  if (!response.ok) throw new AiInterpretError("unavailable");
-
-  let content: unknown;
-  try {
-    const payload = (await response.json()) as {
-      choices?: Array<{ message?: { content?: unknown } }>;
-    };
-    content = payload.choices?.[0]?.message?.content;
-  } catch {
-    throw new AiInterpretError("invalid_response");
-  }
-  if (typeof content !== "string" || !content.trim()) {
-    throw new AiInterpretError("invalid_response");
-  }
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    throw new AiInterpretError("invalid_response");
-  }
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new AiInterpretError("invalid_response");
-  }
-  return parsed as ModelProposal;
 }
 
 /**

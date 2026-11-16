@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSalon, type SalonRecord, isNetworkError, validateSlug } from "@/lib/supabase/salons";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { tenantHost, tenantUrl } from "@/lib/domain/config";
+import { adminAuthorized, adminConfigured } from "@/lib/domain/admin-auth";
 
 /**
  * Platform-admin endpoint for tenant (salon) lifecycle.
@@ -9,15 +10,23 @@ import { tenantHost, tenantUrl } from "@/lib/domain/config";
  * GET  /api/admin/salons          → list all salons (platform dashboard)
  * POST /api/admin/salons          → create a new tenant / mini-app
  *
- * Auth model (default-closed):
- *  - Both endpoints are guarded by `PLATFORM_ADMIN_SECRET`.
- *  - If the secret is not configured, the endpoints are unreachable by design —
- *    they return 401 rather than silently working without auth.
- *  - Auth is accepted either as `Authorization: Bearer <secret>` or via the
- *    legacy operator header `x-platform-admin-secret`.
+ * Auth model (default-closed), implemented in lib/domain/admin-auth.ts:
+ *  - Both endpoints require `PLATFORM_ADMIN_SECRET` via
+ *    `Authorization: Bearer <secret>` or the legacy header
+ *    `x-platform-admin-secret`. A browser never sees the secret: it presents
+ *    the httpOnly session cookie given by `POST /api/admin/session`.
  *
- * What is intentionally NOT exposed: the secret value is never logged or echoed
- * back; on failure we only say "access denied".
+ * Default-closed behaviour (deliberate, not a bug):
+ *  - If `PLATFORM_ADMIN_SECRET` is not configured on the server, every
+ *    request is refused with 401. The client is expected to surface that as
+ *    "admin authorization required" rather than silently substituting demo
+ *    data for real data.
+ *
+ * Security notes:
+ *  - On failure we only say "access denied". The secret is never logged or
+ *    echoed back.
+ *  - Cookie-based sessions are httpOnly; the browser can send them but cannot
+ *    read the underlying secret.
  *
  * Remaining work before prod:
  *  - Replace the shared secret with a real admin session / platform API client
@@ -25,25 +34,6 @@ import { tenantHost, tenantUrl } from "@/lib/domain/config";
  *  - Validate phone format, name length, slug uniqueness more strictly.
  *  - Ensure the caller is allowed to create a tenant (platform owner / reseller).
  */
-
-const PLATFORM_ADMIN_SECRET = process.env.PLATFORM_ADMIN_SECRET;
-
-/**
- * Returns false when the secret is not configured (default-closed) or when the
- * request does not carry a matching bearer token / legacy header. It does not
- * log the secret or distinguish "wrong secret" from "no secret" in responses.
- */
-export function adminSecretOk(request: Request): boolean {
-  if (!PLATFORM_ADMIN_SECRET) {
-    // Default-closed: without a configured secret the endpoint is not usable.
-    return false;
-  }
-  const auth = (request.headers.get("authorization") ?? "").trim();
-  if (auth.startsWith("Bearer ") && auth.slice(7) === PLATFORM_ADMIN_SECRET) {
-    return true;
-  }
-  return request.headers.get("x-platform-admin-secret") === PLATFORM_ADMIN_SECRET;
-}
 
 function adminAuthFailed() {
   return NextResponse.json(
@@ -53,7 +43,7 @@ function adminAuthFailed() {
 }
 
 export async function GET(request: Request) {
-  if (!adminSecretOk(request)) {
+  if (!adminAuthorized(request)) {
     return adminAuthFailed();
   }
 
@@ -133,6 +123,13 @@ const DEFAULT_TAGLINE_RU = "Салон красоты и барбершоп";
 const DEFAULT_TAGLINE_UZ = "Salon va barbershop";
 
 export async function POST(request: NextRequest) {
+  // Authorization first, before the body is read or validated: an
+  // unauthenticated caller must not be able to probe the validation rules, and
+  // must not get a request body parsed on its behalf.
+  if (!adminAuthorized(request)) {
+    return adminAuthFailed();
+  }
+
   try {
     let body: CreateBody;
     try {
@@ -145,9 +142,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "name is required (min 2 characters)" }, { status: 400 });
     }
 
-    if (!adminSecretOk(request)) {
-      return adminAuthFailed();
-    }
     if (!body.phone) {
       return NextResponse.json({ error: "phone is required" }, { status: 400 });
     }

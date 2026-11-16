@@ -2,22 +2,29 @@
 
 import { useState } from "react";
 import { useBooking } from "@/lib/booking/store";
-import { services } from "@/lib/data/salon";
+import { useCatalog } from "@/lib/booking/catalog";
 import { formatDuration, formatSum } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/provider";
 import { useTelegram } from "@/lib/telegram-provider";
-import type { ServiceGroup } from "@/lib/types";
 import { cx } from "@/lib/cx";
 
-const GROUP_ORDER: ServiceGroup[] = ["hair", "beard", "color", "nails", "brows"];
-
-type Filter = ServiceGroup | "all";
+/** A group id, or "all". Group ids come from the tenant's own catalogue. */
+type Filter = string;
 
 export function ServiceList() {
   const { draft, toggleService } = useBooking();
   const { t, tr, locale } = useI18n();
   const { haptic } = useTelegram();
-  const [filter, setFilter] = useState<Filter>("all");
+  const { services, groups } = useCatalog();
+  const [chosen, setFilter] = useState<Filter>("all");
+
+  // A group can disappear under the filter while a site is being edited.
+  const filter = chosen === "all" || groups.some((g) => g.id === chosen) ? chosen : "all";
+  const GROUP_ORDER = groups.map((g) => g.id);
+  const groupTitle = (id: string) => {
+    const group = groups.find((g) => g.id === id);
+    return group ? tr(group.title) : "";
+  };
 
   const visible = filter === "all" ? services : services.filter((s) => s.group === filter);
 
@@ -34,7 +41,7 @@ export function ServiceList() {
   return (
     <div>
       {/* Category rail — swipeable, so five categories cost no vertical space. */}
-      <div className="rail gap-1.5 px-5 pb-1">
+      <div className={cx("rail gap-1.5 px-5 pb-1", groups.length < 2 && "hidden")}>
         {(["all", ...GROUP_ORDER] as Filter[]).map((option) => {
           const active = filter === option;
           const count =
@@ -60,7 +67,7 @@ export function ServiceList() {
                   : "border border-hairline bg-surface-raised text-ink-muted",
               )}
             >
-              {option === "all" ? t("cat.all") : t(`group.${option}`)}
+              {option === "all" ? t("cat.all") : groupTitle(option)}
               {count > 0 && (
                 <span
                   className={cx(
@@ -79,9 +86,9 @@ export function ServiceList() {
       <div className="mt-3 space-y-6">
         {sections.map(({ group, items }) => (
           <section key={group}>
-            {filter === "all" && (
+            {filter === "all" && groups.length > 1 && (
               <h3 className="px-5 font-display text-[13px] font-semibold tracking-[0.01em] text-ink-muted">
-                {t(`group.${group}`)}
+                {groupTitle(group)}
               </h3>
             )}
 
@@ -148,7 +155,7 @@ export function ServiceList() {
                       </span>
 
                       <span className="flex-none text-[14px] font-semibold tabular-nums">
-                        {formatSum(service.priceSum, locale)}
+                        {service.priceSum > 0 ? formatSum(service.priceSum, locale) : t("site.free")}
                       </span>
                     </button>
                     <span className="mx-5 block border-b border-hairline last:hidden" />

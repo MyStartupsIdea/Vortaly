@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useBooking } from "@/lib/booking/store";
-import { masters as allMasters } from "@/lib/data/salon";
+import { useCatalog } from "@/lib/booking/catalog";
+import type { Master } from "@/lib/types";
 import { upcomingDays, worksOn } from "@/lib/booking/slots";
 import {
   formatDayMonth,
@@ -19,7 +20,12 @@ const RAIL_DAYS = 14;
 const BOOKABLE_DAYS = 60;
 
 /** Does anyone who can do the chosen services work that day? */
-function salonOpen(isoDate: string, masterId: string | null, serviceIds: string[]): boolean {
+function salonOpenFor(
+  allMasters: Master[],
+  isoDate: string,
+  masterId: string | null,
+  serviceIds: string[],
+): boolean {
   const pool =
     masterId && masterId !== "any"
       ? allMasters.filter((m) => m.id === masterId)
@@ -31,6 +37,9 @@ export function Calendar() {
   const { draft, setDay } = useBooking();
   const { t, locale } = useI18n();
   const { haptic } = useTelegram();
+  const { masters } = useCatalog();
+  const salonOpen = (isoDate: string, masterId: string | null, serviceIds: string[]) =>
+    salonOpenFor(masters, isoDate, masterId, serviceIds);
   const [monthOpen, setMonthOpen] = useState(false);
 
   const now = useMemo(() => new Date(), []);

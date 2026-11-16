@@ -49,14 +49,26 @@ function stepsOf(startTime: string, durationMin: number): string[] {
  * shared booking store, so the grid reflects real appointments — including one
  * the customer has just made.
  */
-function occupied(master: Master, isoDate: string): Set<string> {
+function occupied(master: Master, isoDate: string, taken: BusySpan[]): Set<string> {
   const busy = new Set(master.busy[isoDate] ?? []);
   for (const booking of getBookingsForDate(isoDate)) {
     if (booking.masterId !== master.id) continue;
     if (booking.status === "cancelled") continue;
     for (const step of stepsOf(booking.time, booking.durationMin)) busy.add(step);
   }
+  // Appointments other customers made, as reported by the server.
+  for (const span of taken) {
+    if (span.masterId !== master.id) continue;
+    for (const step of stepsOf(span.time, span.durationMin)) busy.add(step);
+  }
   return busy;
+}
+
+/** One live appointment: who is busy, from when, for how long. No customer data. */
+export interface BusySpan {
+  masterId: string;
+  time: string;
+  durationMin: number;
 }
 
 export function worksOn(master: Master, isoDate: string): boolean {
@@ -81,6 +93,10 @@ export interface BuildSlotsArgs {
   durationMin: number;
   /** Candidate masters when masterId is "any". */
   candidates?: Master[];
+  /** The tenant's masters. Defaults to the built-in salon's. */
+  masters?: Master[];
+  /** Server-reported appointments for this date. */
+  taken?: BusySpan[];
   /** Injected in tests; defaults to now. */
   now?: Date;
 }
@@ -90,12 +106,14 @@ export function buildSlots({
   isoDate,
   durationMin,
   candidates,
+  masters = allMasters,
+  taken = [],
   now = new Date(),
 }: BuildSlotsArgs): Slot[] {
   const pool =
     masterId === "any"
-      ? (candidates ?? allMasters).filter((m) => worksOn(m, isoDate))
-      : allMasters.filter((m) => m.id === masterId && worksOn(m, isoDate));
+      ? (candidates ?? masters).filter((m) => worksOn(m, isoDate))
+      : masters.filter((m) => m.id === masterId && worksOn(m, isoDate));
 
   if (pool.length === 0) return [];
 
@@ -103,7 +121,7 @@ export function buildSlots({
   const gridStart = Math.min(...pool.map((m) => toMinutes(m.shiftStart)));
   const gridEnd = Math.max(...pool.map((m) => toMinutes(m.shiftEnd)));
 
-  const busyByMaster = new Map(pool.map((m) => [m.id, occupied(m, isoDate)]));
+  const busyByMaster = new Map(pool.map((m) => [m.id, occupied(m, isoDate, taken)]));
   const isToday = isoDate === toIsoDate(now);
   const nowMin = now.getHours() * 60 + now.getMinutes();
 

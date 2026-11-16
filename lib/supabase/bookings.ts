@@ -295,6 +295,58 @@ export async function resolveBookingComposition(
   }
 }
 
+/* ----------------------------------------------------------- occupancy --- */
+
+/**
+ * Who is busy when, for one tenant on one day — and nothing else.
+ *
+ * This is public by design: a customer choosing a time has to see which slots
+ * are gone. That is why it selects three columns and no more. Names, phones,
+ * Telegram ids, prices and statuses never leave the table through this call.
+ */
+export interface BusyRow {
+  masterId: string;
+  time: string;
+  durationMin: number;
+}
+
+export async function listBusy(
+  salonId: string,
+  isoDate: string,
+): Promise<{ busy: BusyRow[]; degraded: boolean }> {
+  const db = getSupabaseServer();
+  if (!db) return { busy: [], degraded: true };
+
+  try {
+    const { data, error } = await db
+      .from(TABLE)
+      .select("master_id, booking_time, duration_min")
+      .eq("salon_id", salonId)
+      .eq("booking_date", isoDate)
+      .neq("status", "cancelled")
+      .limit(500)
+      .returns<{ master_id: string; booking_time: string; duration_min: number }[]>();
+
+    if (error) {
+      logDbFailure("listBusy", error);
+      return { busy: [], degraded: true };
+    }
+
+    return {
+      busy: (data ?? []).map((row) => ({
+        masterId: row.master_id,
+        // Postgres `time` reads back as HH:MM:SS; the grid speaks HH:MM.
+        time: row.booking_time.slice(0, 5),
+        durationMin: row.duration_min,
+      })),
+      degraded: false,
+    };
+  } catch (err) {
+    logDbFailure("listBusy", err);
+    return { busy: [], degraded: true };
+  }
+}
+
 /* --------------------------------------------------------------- create --- */
 
 export interface PersistResult {

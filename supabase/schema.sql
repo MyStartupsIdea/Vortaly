@@ -1,4 +1,4 @@
--- UzMini — beauty & barbershop MVP schema.
+-- Vortaly — beauty & barbershop MVP schema.
 -- Apply in the Supabase SQL editor, or: supabase db push
 
 create extension if not exists "pgcrypto";
@@ -181,6 +181,24 @@ create index if not exists payments_booking_idx on payments (booking_id);
 create unique index if not exists payments_provider_txn_idx
   on payments (provider, provider_txn_id)
   where provider_txn_id is not null;
+
+-- ----------------------------------------------------------- site builder --
+-- One generated site per tenant, as plain JSON (see lib/builder/spec.ts).
+--   draft      what the builder is editing
+--   published  what /<slug> serves and what bookings are priced from
+-- Editing the draft never changes the public page; publishing copies it over.
+--
+-- Read and written only by the server with the secret key. RLS is on with no
+-- policy, so the anon key can neither read a draft nor publish one.
+create table if not exists sites (
+  id            text primary key references salons(id) on delete cascade,
+  draft         jsonb       not null,
+  published     jsonb,
+  updated_at    timestamptz not null default now(),
+  published_at  timestamptz
+);
+
+alter table sites enable row level security;
 
 -- ------------------------------------------------------- row level security --
 -- The catalogue is public; bookings and payments are reachable only through

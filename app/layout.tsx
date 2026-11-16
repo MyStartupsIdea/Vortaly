@@ -22,10 +22,10 @@ const manrope = Manrope({
 });
 
 export const metadata: Metadata = {
-  title: "Chinor — запись онлайн | UzMini",
+  title: "Chinor — запись онлайн | Vortaly",
   description:
-    "Запись в салон и барбершоп Chinor в Ташкенте: услуги, мастера, свободное время. Модуль платформы UzMini.",
-  applicationName: "UzMini",
+    "Запись в салон и барбершоп Chinor в Ташкенте: услуги, мастера, свободное время. Модуль платформы Vortaly.",
+  applicationName: "Vortaly",
   other: { "format-detection": "telephone=no" },
 };
 

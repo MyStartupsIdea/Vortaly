@@ -2,7 +2,7 @@
 
 import { Stars } from "@/components/ui/Stars";
 import { useBooking } from "@/lib/booking/store";
-import { masters } from "@/lib/data/salon";
+import { useCatalog } from "@/lib/booking/catalog";
 import { worksOn } from "@/lib/booking/slots";
 import { toIsoDate } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/provider";
@@ -13,6 +13,7 @@ export function MasterList({ onPicked }: { onPicked?: () => void } = {}) {
   const { draft, setMaster } = useBooking();
   const { t, tr } = useI18n();
   const { haptic } = useTelegram();
+  const { masters } = useCatalog();
 
   const today = toIsoDate(new Date());
   const chosenServices = draft.serviceIds;
@@ -93,11 +94,15 @@ export function MasterList({ onPicked }: { onPicked?: () => void } = {}) {
             <span className="min-w-0 flex-1">
               <span className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-[15px] font-semibold">{master.name}</span>
-                <Stars rating={master.rating} className="flex-none text-[13px]" />
+                {master.rating > 0 && (
+                  <Stars rating={master.rating} className="flex-none text-[13px]" />
+                )}
               </span>
-              <span className="mt-0.5 block truncate text-[13px] text-ink-muted">
-                {tr(master.craft)}
-              </span>
+              {tr(master.craft) && (
+                <span className="mt-0.5 block truncate text-[13px] text-ink-muted">
+                  {tr(master.craft)}
+                </span>
+              )}
               <span
                 className={cx(
                   "mt-1 block text-[12px] font-medium",
