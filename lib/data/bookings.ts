@@ -1,7 +1,7 @@
 import type { Booking, BookingStatus } from "@/lib/types";
 import { totalFor } from "@/lib/data/salon";
 
-const STORAGE_KEY = "uzmini:admin:bookings";
+const STORAGE_KEY = "vortaly:admin:bookings";
 
 /**
  * Where a record in this store actually came from.
@@ -174,7 +174,7 @@ export const DEMO_BOOKINGS: StoredBooking[] = [
 
 /**
  * Admin-only state layer. On the client side this persists to localStorage
- * under `uzmini:admin:bookings`; the server side returns the DEMO_BOOKINGS
+ * under `vortaly:admin:bookings`; the server side returns the DEMO_BOOKINGS
  * seed so the page never renders empty on first SSR paint.
  */
 let clientBookings: StoredBooking[] | null = null;

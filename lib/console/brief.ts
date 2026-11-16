@@ -84,7 +84,7 @@ const PLACE_OR_TECH_STEMS = [
   "ташкент", "тошкент", "чиланзар", "самарканд", "бухар", "наманган",
   "ферган", "андижан", "юнусабад", "сергел", "нукус", "хива",
   "toshkent", "tashkent", "chilonzor", "samarqand", "buxoro", "xiva",
-  "payme", "click", "uzum", "telegram", "supabase", "uzmini",
+  "payme", "click", "uzum", "telegram", "supabase", "vortaly",
   "mini", "app", "ilova", "bot", "ai",
 ];
 

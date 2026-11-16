@@ -5,20 +5,12 @@ import {
   slugFor,
   type FindSalonResult,
 } from "@/lib/supabase/salons";
-import type { LogLevel, StageId } from "@/lib/data/projects";
+import type { LogLevel, ProjectKind, StageId } from "@/lib/data/projects";
+import { generateSpec } from "@/lib/builder/generate";
+import { cleanPhone } from "@/lib/builder/spec";
+import { fileSiteExists, localOnlyMode, saveDraft } from "@/lib/builder/store";
 import { ROOT_DOMAIN } from "@/lib/domain/config";
-
-const ADMIN_SECRET_OK = process.env.PLATFORM_ADMIN_SECRET == null
-  ? () => false
-  : (request: Request) => {
-      const secret = process.env.PLATFORM_ADMIN_SECRET;
-      if (!secret) return false;
-
-      const auth = (request.headers.get("authorization") ?? "").trim();
-      if (auth.startsWith("Bearer ") && auth.slice(7) === secret) return true;
-
-      return request.headers.get("x-platform-admin-secret") === secret;
-    };
+import { adminAuthorized } from "@/lib/domain/admin-auth";
 
 /**
  * Streams tenant provisioning as newline-delimited JSON, one event per real
@@ -34,6 +26,10 @@ const ADMIN_SECRET_OK = process.env.PLATFORM_ADMIN_SECRET == null
  * than claimed as done.
  */
 
+export const runtime = "nodejs";
+// Site generation is a model round trip with failover across providers.
+export const maxDuration = 120;
+
 export interface ProvisionStep {
   type: "step";
   stage: StageId;
@@ -48,6 +44,8 @@ export interface ProvisionDone {
   persisted: boolean;
   subdomain: string;
   urls: { tenant: string };
+  /** Where the generated site is reviewed, edited and published. */
+  builder?: string;
   warning?: string;
 }
 
@@ -67,6 +65,8 @@ const TENANT_TABLES: Record<string, string[]> = {
   custom: ["salons", "services", "bookings", "payments"],
 };
 
+const RESERVED_SLUGS = new Set(["admin", "api", "bookings", "builder", "checkout", "chinor"]);
+
 interface Body {
   name?: string;
   phone?: string;
@@ -78,7 +78,10 @@ interface Body {
 }
 
 export async function POST(request: Request) {
-  if (!ADMIN_SECRET_OK(request)) {
+  // Same default-closed gate as /api/admin/salons, from one module: the
+  // secret in a header for tooling, or the httpOnly session cookie a browser
+  // received from POST /api/admin/session.
+  if (!adminAuthorized(request)) {
     return respondWithError(401, "access denied");
   }
 
@@ -121,9 +124,9 @@ export async function POST(request: Request) {
         step("schema", "ok", `input accepted: "${name}", ${phone}`);
 
         /* The brief is echoed verbatim so the log says what was actually asked
-           for, and is capped because a log line is not a transcript. Keyword
-           inference happens in the browser (lib/console/brief.ts); nothing
-           here calls a model, so the log claims no more than that. */
+           for, and is capped because a log line is not a transcript. The trade
+           is inferred from keywords in the browser (lib/console/brief.ts); the
+           model is only called later, in buildSite, and is named there. */
         const brief = (body.brief ?? "").replace(/\s+/g, " ").trim();
         if (brief) {
           step(
@@ -138,9 +141,23 @@ export async function POST(request: Request) {
 
         // ---------------------------------------------- slug + collision ----
         let slug = slugFor(name);
+        // A tenant is served at /<slug>, so it must not shadow a platform route.
+        if (RESERVED_SLUGS.has(slug)) slug = `${slug}-app`;
         step("schema", "info", `slug derived: ${slug}`);
 
-        let lookup: FindSalonResult = await findSalonBySlug(slug);
+        /* Local trial: no Supabase keys at all, outside production. There is no
+           tenant table to write to, so the site is built as a local draft and
+           the result says so. With keys present this branch is never taken,
+           and a database fault is still a hard error below. */
+        const local = localOnlyMode();
+
+        let lookup: FindSalonResult = local
+          ? {
+              found: await fileSiteExists(slug),
+              available: true,
+              unavailable: false,
+            }
+          : await findSalonBySlug(slug);
 
         if (lookup.unavailable) {
           send({
@@ -159,7 +176,9 @@ export async function POST(request: Request) {
           while (lookup.found && suffix <= 9) {
             slug = `${base}-${suffix}`;
 
-            lookup = await findSalonBySlug(slug);
+            lookup = local
+              ? { found: await fileSiteExists(slug), available: true, unavailable: false }
+              : await findSalonBySlug(slug);
             if (lookup.unavailable) {
               send({
                 type: "error",
@@ -181,6 +200,30 @@ export async function POST(request: Request) {
         // ------------------------------------------------------- database ----
         const tables = TENANT_TABLES[kind];
         step("schema", "info", `tenant rows land in: ${tables.join(", ")}`);
+
+        if (local) {
+          step("schema", "warn", "supabase is not configured: local draft only, no tenant row");
+          step("domain", "info", `subdomain reserved: ${slug}.${ROOT_DOMAIN}`);
+          step("domain", "warn", "dns record and tls certificate: not automated yet");
+
+          const built = await buildSite({ slug, name, phone, kind, brief }, step);
+          if (!built) {
+            send({ type: "error", status: 503, error: "site draft could not be saved" });
+            return;
+          }
+
+          send({
+            type: "done",
+            slug,
+            id: slug,
+            persisted: false,
+            subdomain: `${slug}.${ROOT_DOMAIN}`,
+            urls: { tenant: `https://${slug}.${ROOT_DOMAIN}` },
+            builder: `/builder/${slug}`,
+            warning: "Supabase not configured: the site exists as a local draft only.",
+          });
+          return;
+        }
 
         // Do not trust a free-looking slug or a successful-looking insert as
         // proof that the tenant was created. If createSalon could not persist,
@@ -249,13 +292,10 @@ export async function POST(request: Request) {
         step("domain", "warn", "dns record and tls certificate: not automated yet");
 
         // -------------------------------------------------------------- ui ---
-        step("ui", "ok", "tenant uses the shared app, no per-tenant build");
-        step("ui", "ok", "screens: services, master, time, contacts, payment");
-        step("ui", "ok", "locales ready: ru, uz");
-
-        // ---------------------------------------------------------- deploy ---
-        step("deploy", "ok", `live at /${result.slug}`);
-
+        // The tenant row is real from here on. If the site draft cannot be
+        // written the tenant still exists, so this is reported, not thrown:
+        // the builder can generate the site later.
+        const built = await buildSite({ slug: result.slug, name, phone, kind, brief }, step);
 
         send({
           type: "done",
@@ -264,6 +304,8 @@ export async function POST(request: Request) {
           persisted: true,
           subdomain,
           urls: { tenant: `https://${subdomain}` },
+          builder: `/builder/${result.slug}`,
+          warning: built ? undefined : "Tenant created, but the site draft was not saved.",
         });
       } catch (cause) {
         send({
@@ -292,6 +334,71 @@ export async function POST(request: Request) {
       "X-Accel-Buffering": "no",
     },
   });
+}
+
+/**
+ * Generates the tenant's site and saves it as a draft, narrating each real
+ * step. Returns false only when the draft could not be stored.
+ *
+ * The log names the model that actually answered, or says plainly that none
+ * did and the trade's stock content was used instead. It never claims AI wrote
+ * a page that a template produced.
+ */
+async function buildSite(
+  input: { slug: string; name: string; phone: string; kind: string; brief: string },
+  step: (stage: StageId, level: LogLevel, text: string) => void,
+): Promise<boolean> {
+  const kind = input.kind as ProjectKind;
+  const phone = cleanPhone(input.phone);
+
+  step("ui", "info", "asking the model for services, prices, texts (ru + uz)...");
+  const generated = await generateSpec({
+    slug: input.slug,
+    name: input.name,
+    phone,
+    kind,
+    // With no brief the trade and the name are all there is to go on.
+    brief: input.brief || `${input.name} (${kind})`,
+  });
+
+  if (generated.origin === "ai") {
+    step("ui", "ok", `site written by ${generated.model}`);
+  } else {
+    step(
+      "ui",
+      "warn",
+      `ai did not answer (${generated.failure ?? "unavailable"}): stock ${kind} template used`,
+    );
+  }
+
+  const { spec } = generated;
+  const bookable = spec.items.filter((item) => item.bookable).length;
+  step(
+    "ui",
+    "ok",
+    `${spec.categories.length} sections, ${spec.items.length} items (${bookable} bookable), ${spec.staff.length} staff`,
+  );
+  step("ui", "ok", `theme: ${spec.theme}, locales: ru, uz`);
+
+  const saved = await saveDraft(input.slug, spec);
+  if (!saved.ok) {
+    step(
+      "deploy",
+      "warn",
+      saved.reason === "schema_missing"
+        ? "draft not saved: the `sites` table is missing (apply supabase/schema.sql)"
+        : `draft not saved: ${saved.reason}`,
+    );
+    return false;
+  }
+
+  if (saved.site.storage === "file") {
+    step("deploy", "warn", "draft saved to local files (.vortaly/): the `sites` table is not available");
+  } else {
+    step("deploy", "ok", "draft saved to supabase");
+  }
+  step("deploy", "info", `not public yet: review and publish at /builder/${input.slug}`);
+  return true;
 }
 
 function respondWithError(status: number, error: string) {

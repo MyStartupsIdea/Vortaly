@@ -5,7 +5,16 @@ import { AgentLog, type Run } from "@/components/console/AgentLog";
 import { CommandCenter, type CreateRequest } from "@/components/console/CommandCenter";
 import { ProjectPanel, type SessionCard } from "@/components/console/ProjectPanel";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { listSalons, provisionSalon, type SalonRecord } from "@/lib/api/salons";
+import {
+  adminAuthState,
+  listSalons,
+  lockAdmin,
+  provisionSalon,
+  unlockAdmin,
+  type AdminAuthState,
+  type SalonRecord,
+  type UnlockResult,
+} from "@/lib/api/salons";
 import { ROOT_DOMAIN } from "@/lib/data/projects";
 import { classifySave } from "@/lib/save-state";
 import { useI18n } from "@/lib/i18n/provider";
@@ -18,6 +27,14 @@ export default function ConsolePage() {
 
   const [salons, setSalons] = useState<SalonRecord[] | null>(null);
   const [listWarning, setListWarning] = useState<string | null>(null);
+  /** The admin API refused the list; the console asks for the key instead. */
+  const [unauthorized, setUnauthorized] = useState(false);
+  /**
+   * Whether this deployment has a platform-admin secret, and whether this
+   * browser currently holds a session for it. Neither value is a credential —
+   * the secret stays server-side and the session is an httpOnly cookie.
+   */
+  const [auth, setAuth] = useState<AdminAuthState | null>(null);
 
   const [run, setRun] = useState<Run | null>(null);
   const [card, setCard] = useState<SessionCard | null>(null);
@@ -29,10 +46,33 @@ export default function ConsolePage() {
     const result = await listSalons();
     setSalons(result.salons);
     setListWarning(result.warning ?? null);
+    setUnauthorized(result.unauthorized === true);
+    // Only asked for when the list was refused, so the panel can say whether
+    // the fix is "enter the key" or "the server has no key configured".
+    setAuth(result.unauthorized ? await adminAuthState() : { configured: true, authorized: true });
   }, []);
 
   useEffect(() => {
     void refresh();
+  }, [refresh]);
+
+  const handleUnlock = useCallback(
+    async (secret: string): Promise<UnlockResult> => {
+      const result = await unlockAdmin(secret);
+      // The secret is not kept anywhere on this side: the form field that held
+      // it is cleared, and from here on the httpOnly cookie does the work.
+      if (result.ok) await refresh();
+      else if (result.reason === "not_configured") {
+        setAuth({ configured: false, authorized: false });
+      }
+      return result;
+    },
+    [refresh],
+  );
+
+  const handleLock = useCallback(async () => {
+    await lockAdmin();
+    await refresh();
   }, [refresh]);
 
   /**
@@ -112,6 +152,7 @@ export default function ConsolePage() {
               subdomain: event.subdomain,
               persisted: event.persisted,
               warning: event.warning,
+              builder: event.builder,
             });
             // A persisted tenant is a real row, so the list can show it.
             if (event.persisted) void refresh();
@@ -159,7 +200,7 @@ export default function ConsolePage() {
       <header className="flex flex-none items-center justify-between gap-4 border-b border-hairline bg-surface px-4 py-3 lg:px-6">
         <div className="flex items-baseline gap-3">
           <span className="font-display text-[19px] leading-none font-bold tracking-[-0.03em]">
-            UzMini
+            Vortaly Console
           </span>
           <span className="font-mono text-[11px] text-ink-muted">{ROOT_DOMAIN}</span>
         </div>
@@ -173,6 +214,11 @@ export default function ConsolePage() {
             warning={listWarning}
             card={card}
             onRefresh={() => void refresh()}
+            unauthorized={unauthorized}
+            authConfigured={auth?.configured ?? true}
+            authorized={auth?.authorized ?? false}
+            onUnlock={handleUnlock}
+            onLock={() => void handleLock()}
           />
         </div>
 

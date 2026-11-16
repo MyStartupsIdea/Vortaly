@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { LANGUAGE_SWITCHER } from "@/components/admin/UzMiniAdminLanguageSwitcher";
+import { LANGUAGE_SWITCHER } from "@/components/admin/VortalyAdminLanguageSwitcher";
 import { salon } from "@/lib/data/salon";
 import { formatPhone } from "@/lib/format";
 import { useI18n } from "@/lib/i18n/provider";
@@ -14,7 +14,7 @@ import type { ReactNode } from "react";
  * and renders edge to edge, with a fixed sidebar on wide screens and a
  * collapsible rail on tablets.
  */
-export function UzMiniAdminShell({ children }: { children: ReactNode }) {
+export function VortalyAdminShell({ children }: { children: ReactNode }) {
   const { t, tr } = useI18n();
 
   return (

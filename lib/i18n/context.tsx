@@ -22,7 +22,7 @@ const LocaleContext = createContext<LocaleContextValue>({
   isHydrated: false,
 });
 
-export const STORAGE_KEY = "uzmini:locale";
+export const STORAGE_KEY = "vortaly:locale";
 
 function readStored(): Locale {
   if (typeof window === "undefined") return "ru";

@@ -98,6 +98,37 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // ---- Path-addressed tenants on the platform host ----
+  //
+  // Until wildcard DNS exists, a tenant is opened at <platform>/<slug>, not at
+  // <slug>.<ROOT_DOMAIN>, so the host says nothing about which tenant an API
+  // call is for. The Mini App therefore names it in `x-vortaly-tenant`.
+  //
+  // This grants nothing the subdomain does not: anyone can already address any
+  // tenant by visiting its host. The claimed slug gets the same authoritative
+  // database lookup, booking contents are still bound to that tenant's own
+  // catalogue, and reading bookings still needs verified Telegram identity.
+  // A tenant subdomain always wins — the header is ignored there.
+  if (tenantType === "platform" && url.pathname.startsWith("/api/")) {
+    const claimed = request.headers.get("x-vortaly-tenant")?.trim().toLowerCase();
+    if (claimed && isValidSlug(claimed)) {
+      const lookup = await findSalonBySlug(claimed);
+      if (findSalonBySlugFound(lookup)) {
+        salonId = findSalonBySlugRecord(lookup)?.id ?? null;
+        if (salonId) tenantType = "tenant";
+      } else if (
+        process.env.NODE_ENV !== "production" &&
+        (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SECRET_KEY)
+      ) {
+        // Local trial with no database at all: there is nothing to look the
+        // slug up in, and nothing can be persisted either. The booking API
+        // answers from the local draft store and reports the booking unsaved.
+        salonId = claimed;
+        tenantType = "tenant";
+      }
+    }
+  }
+
   // ---- Build the request headers for the downstream pass ----
   // We copy-paste the incoming request's headers into a fresh `Headers` object so
   // that we can safely remove client-supplied tenant headers and inject only the
@@ -113,6 +144,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // Strip any tenant identity the caller may have sent.
+  downstreamHeaders.delete("x-vortaly-tenant");
   downstreamHeaders.delete("x-salon-id");
   downstreamHeaders.delete("x-tenant-type");
 

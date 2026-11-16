@@ -34,7 +34,7 @@ const EMPTY_DRAFT: Draft = {
   payMethod: "cash",
 };
 
-const DRAFT_KEY = "uzmini.draft";
+const DRAFT_KEY = "vortaly.draft";
 
 /**
  * The in-progress booking only. Confirmed bookings live in

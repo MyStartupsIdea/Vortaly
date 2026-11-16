@@ -33,7 +33,7 @@ const PAGE_SIZE = 12;
  *    their price in sums (UZS), with changes reflected immediately in the
  *    in-memory store used by the table's totals.
  *
- * Everything lives in localStorage under `uzmini:admin:bookings` on the
+ * Everything lives in localStorage under `vortaly:admin:bookings` on the
  * client side; the server-side seed is the demo set from lib/data/bookings.
  *
  * Because none of that is Supabase, the table never presents a row as though

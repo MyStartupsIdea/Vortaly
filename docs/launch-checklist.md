@@ -1,9 +1,15 @@
 # Launch checklist
 
-This repository is prepared for the planned `uzmini.com` domain. The actual
-domain is not purchased or configured yet. Change `NEXT_PUBLIC_ROOT_DOMAIN`
-and `NEXT_PUBLIC_APP_URL` in the deployment environment if the final domain
-differs.
+The product is **Vortaly**: Vortaly AI platform, Vortaly Mini App and Vortaly
+Console. The name is used everywhere, including the technical surface:
+`VORTALY_*` env vars, component and file names, the `vortaly.*` storage keys,
+the `vortaly.admin` session cookie, the `x-vortaly-tenant` header and the
+`.vortaly/` directory.
+
+This repository is prepared for the planned `vortaly.com` domain, which is
+still a placeholder — it is not purchased or configured yet. Change
+`NEXT_PUBLIC_ROOT_DOMAIN` and `NEXT_PUBLIC_APP_URL` in the deployment
+environment if the final domain differs.
 
 ## Before launch
 
@@ -15,17 +21,37 @@ differs.
 - Configure `NEXT_PUBLIC_ROOT_DOMAIN` and `NEXT_PUBLIC_APP_URL` in the host.
 - Configure Supabase URL, publishable/anon key, and server secret in the host's
   secret settings. Never commit `.env.local` or provider keys.
-- Configure `TELEGRAM_BOT_TOKEN` server-side and set the Telegram Web App URL to
-  the HTTPS platform or tenant URL.
+- Configure `TELEGRAM_BOT_TOKEN` server-side and point the Telegram Web App URL
+  at the HTTPS URL of Vortaly Console or of a Vortaly Mini App.
 - Review and apply `supabase/schema.sql` to the intended Supabase project, then
   verify RLS and seed the salon's masters and services.
-- Set `PLATFORM_ADMIN_SECRET` server-side before using `/api/admin/*`.
+- Set `PLATFORM_ADMIN_SECRET` server-side before using `/api/admin/*`. The
+  console that Vortaly Console serves at `/` cannot hold that value: it posts
+  it once to `POST /api/admin/session`, which returns an httpOnly session
+  cookie (8h,
+  `SameSite=Strict`, `Secure` in production). Never expose the secret to the
+  client, and never add a `NEXT_PUBLIC_` copy of it. With no secret set,
+  `/api/admin/*` stays closed in development as well as in production, and the
+  project list in Vortaly Console stays locked instead of falling back to demo
+  rows.
+- Site builder: apply `supabase/migrations/2026-11-16_sites.sql` (one table,
+  `sites`) before using `/builder/<slug>` in production. Without it the builder
+  answers `schema_missing` in production; in development it falls back to local
+  files under `.vortaly/`, which are not deployed and not shared.
+- Site builder AI needs at least one working `*_API_KEY_1` (Groq, Gemini,
+  OpenRouter or OrcaRouter). With none, or with every provider down, a new
+  business still gets a stock template for its trade and the log says so.
+- A generated site is a draft until it is published from the builder. Publishing
+  also mirrors its staff into `masters`, which bookings reference.
+- Until wildcard DNS exists, a tenant opens at `/<slug>` on the Vortaly host.
+  The Vortaly Mini App sends its tenant in the `X-Vortaly-Tenant` header, and
+  `proxy.ts` verifies the slug against `salons` before accepting any booking.
 - Keep Click and Payme disabled for live payments until their server callbacks,
   signature checks, amount verification, and idempotency are implemented.
 
 ## Now, without a domain and without a committed budget
 
-These steps do not require owning `uzmini.com` yet, and do not assume any free
+These steps do not require owning `vortaly.com` yet, and do not assume any free
 hosting exists. Free hosting may not be available, may require a card or
 verification, or may have limits that make it unsuitable for a real pilot.
 
@@ -42,9 +68,9 @@ verification, or may have limits that make it unsuitable for a real pilot.
 
 Public, browser-safe variables:
 
-- `NEXT_PUBLIC_ROOT_DOMAIN` — root domain, for example `uzmini.com`.
+- `NEXT_PUBLIC_ROOT_DOMAIN` — root domain, for example `vortaly.com`.
 - `NEXT_PUBLIC_APP_URL` — public application URL, for example
-      `https://app.uzmini.com`.
+      `https://app.vortaly.com`.
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 
@@ -62,11 +88,11 @@ environment.
 
 ### Telegram (no domain yet)
 
-- [ ] Open Telegram BotFather and create or review the bot used by the Mini
-      App.
+- [ ] Open Telegram BotFather and create or review the bot used by the
+      Vortaly Mini App.
 - [ ] Note that the Web App URL must be a fully qualified HTTPS URL.
-- [ ] Do not set or save the Web App URL until the HTTPS platform or tenant URL
-      exists.
+- [ ] Do not set or save the Web App URL until the HTTPS URL for Vortaly
+      Console or for a Vortaly Mini App exists.
 
 ### Supabase project (preparation, not schema apply yet)
 
@@ -93,28 +119,28 @@ environment.
       environment is ready.
 - [ ] Do not promise a free hosting option that has not been verified.
 
-## On the day `uzmini.com` is purchased
+## On the day `vortaly.com` is purchased
 
 ### Domain, DNS, and HTTPS
 
-- [ ] Confirm that the purchased domain is `uzmini.com` and update all
+- [ ] Confirm that the purchased domain is `vortaly.com` and update all
       deployment references that used a different placeholder domain.
 - [ ] Add the root domain and the wildcard tenant domain to DNS at the DNS
       provider.
-      - Root: `uzmini.com`.
-      - Wildcard tenant: `*.uzmini.com`.
+      - Root: `vortaly.com`.
+      - Wildcard tenant: `*.vortaly.com`.
 - [ ] Point the DNS records to the host that will run Next.js server routes
       (A/CNAME as appropriate for that host).
 - [ ] Enable HTTPS for the root domain and for wildcard tenant hostnames at the
       selected host. If the host does not support wildcard HTTPS on the selected
       plan, add only the hostnames that are actually needed for the pilot.
-- [ ] Wait for DNS to propagate and for HTTPS to be active before opening the
-      Mini App to users.
+- [ ] Wait for DNS to propagate and for HTTPS to be active before opening
+      the Vortaly Mini App to users.
 
 ### Environment variables (values in host secrets, not in the repository)
 
 - [ ] Set the public variables for the real domain:
-      - `NEXT_PUBLIC_ROOT_DOMAIN=uzmini.com`
+      - `NEXT_PUBLIC_ROOT_DOMAIN=vortaly.com`
       - `NEXT_PUBLIC_APP_URL=https://<chosen public host>`
       - `NEXT_PUBLIC_SUPABASE_URL`
       - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
@@ -138,8 +164,8 @@ environment.
 
 ### Telegram Web App URL
 
-- [ ] Open Telegram BotFather and set the Web App URL to the real HTTPS
-      platform or tenant URL.
+- [ ] Open Telegram BotFather and set the Web App URL to the real HTTPS URL of
+      Vortaly Console or of a Vortaly Mini App.
 - [ ] Verify that the URL matches the HTTPS host users will open.
 
 ### Build and deploy
@@ -153,15 +179,19 @@ environment.
 
 ### Manual verification after deploy
 
-- [ ] Open the root domain over HTTPS and confirm the platform loads.
+- [ ] Open the root domain over HTTPS and confirm Vortaly Console loads.
 - [ ] Confirm that a wildcard tenant hostname resolves and is mapped by the
       tenant routing code to the correct salon.
-- [ ] Open the Mini App and confirm it loads over HTTPS.
-- [ ] In the Mini App, confirm that a booking is stored in Supabase and can be
-      cancelled, and that failed requests leave the booking visible in the
-      client.
+- [ ] Open the Vortaly Mini App and confirm it loads over HTTPS.
+- [ ] In the Vortaly Mini App, confirm that a booking is stored in Supabase
+      and can be cancelled, and that failed requests leave the booking visible
+      in the client.
 - [ ] Confirm that owner APIs reject requests without a valid owner session.
-- [ ] Confirm that admin endpoints are protected by `PLATFORM_ADMIN_SECRET`.
+- [ ] Confirm that admin endpoints are protected by `PLATFORM_ADMIN_SECRET`:
+      `GET /api/admin/salons` must answer 401 with no credential, and Vortaly
+      Console must list real tenants only after unlocking with the secret.
+- [ ] Confirm the secret appears in no client bundle:
+      `grep -r "<secret>" .next/static` must find nothing.
 
 DNS, TLS, Telegram configuration, and remote Supabase state still require manual
 setup in their respective dashboards. Do not assume any free hosting path is
