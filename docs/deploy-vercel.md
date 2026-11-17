@@ -14,7 +14,8 @@
 2. В SQL-редакторе нового проекта выполните по порядку:
    - `supabase/schema.sql` — все таблицы, RLS и сид;
    - `supabase/migrations/2026-11-16_sites.sql` и
-     `supabase/migrations/2026-11-17_site_ai.sql` — повторный запуск
+     `supabase/migrations/2026-11-17_site_ai.sql` и
+     `supabase/migrations/2026-11-18_owner_telegram.sql` — повторный запуск
      безопасен, они уже входят в `schema.sql`.
 3. Запомните регион проекта (Settings → General): он понадобится в шаге 4.
 
@@ -122,6 +123,16 @@ Settings → Functions → **Function Region**: выберите регион, �
 Когда адрес работает: @BotFather → ваш бот → Bot Settings → Configure Mini App
 (или `/newapp`) → URL `https://<проект>.vercel.app/<slug>`. Откройте Mini App в
 Telegram и сделайте тестовую запись.
+
+### Вход владельцев через Telegram
+
+1. @BotFather → `/setdomain` → ваш бот → `<проект>.vercel.app` (без
+   `https://`). Без этого кнопка входа на `/owner` не появится.
+2. `NEXT_PUBLIC_TELEGRAM_BOT_USERNAME` и `TELEGRAM_BOT_TOKEN` должны быть от
+   этого же бота, а `VORTALY_KEY_SECRET` — задан (им подписываются сессии).
+3. Проверка: откройте `/builder/<slug>` как оператор → «Пригласить владельца»
+   → откройте ссылку в другом браузере → войдите через Telegram → должен
+   открыться конструктор этого бизнеса, а `/builder/<другой slug>` — нет.
 
 ## 8. Когда появится свой домен
 

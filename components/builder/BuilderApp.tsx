@@ -15,8 +15,10 @@ import {
   saveSpec,
   type AiStatusView,
   type LoadSite,
+  type Viewer,
   type StaffWarning,
 } from "@/lib/api/builder";
+import { createOwnerInvite } from "@/lib/api/owner";
 import { unlockAdmin } from "@/lib/api/salons";
 import type { SiteSpec } from "@/lib/builder/spec";
 import { ROOT_DOMAIN } from "@/lib/data/projects";
@@ -74,6 +76,8 @@ export function BuilderApp({ slug }: { slug: string }) {
   const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
   const [ai, setAi] = useState<AiStatusView | null>(null);
   const [keyOpen, setKeyOpen] = useState(false);
+  const [viewer, setViewer] = useState<Viewer>("admin");
+  const [inviting, setInviting] = useState(false);
 
   const pending = useRef<SiteSpec | null>(null);
   const timer = useRef<number | null>(null);
@@ -88,6 +92,7 @@ export function BuilderApp({ slug }: { slug: string }) {
     void refreshAi();
     const result = await fetchSite(slug);
     setLoad(result);
+    if (result.status === "ok" || result.status === "no_site") setViewer(result.viewer);
     if (result.status === "ok") {
       setSpec(result.site.draft);
       setServerDraft(result.site.draft);
@@ -262,6 +267,25 @@ export function BuilderApp({ slug }: { slug: string }) {
     );
   }, [flush, publishing, slug, t]);
 
+  /* -------------------------------------------------------------- invite --- */
+
+  const invite = useCallback(async () => {
+    if (inviting) return;
+    setInviting(true);
+    const result = await createOwnerInvite(slug);
+    setInviting(false);
+    if (!result.ok) {
+      setNotice({ tone: "warn", text: t("o.inviteFailed") });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(result.url);
+    } catch {
+      // Copying is a convenience; the link is shown in full either way.
+    }
+    setNotice({ tone: "ok", text: t("o.inviteReady", { url: result.url }) });
+  }, [inviting, slug, t]);
+
   /* ---------------------------------------------------------- non-ready --- */
 
   if (load.status === "loading") {
@@ -269,7 +293,7 @@ export function BuilderApp({ slug }: { slug: string }) {
   }
 
   if (load.status === "unauthorized") {
-    return <Unlock onUnlocked={() => void reload()} />;
+    return <Unlock slug={slug} onUnlocked={() => void reload()} />;
   }
 
   if (load.status === "no_site") {
@@ -277,6 +301,7 @@ export function BuilderApp({ slug }: { slug: string }) {
       <Generate
         slug={slug}
         name={load.tenant.name}
+        home={load.viewer === "owner" ? "/owner" : "/"}
         ai={ai}
         onAiChange={setAi}
         onDone={() => void reload()}
@@ -314,8 +339,11 @@ export function BuilderApp({ slug }: { slug: string }) {
   return (
     <div className="flex min-h-screen flex-col bg-surface-sunken lg:h-dvh lg:overflow-hidden">
       <header className="flex flex-none flex-wrap items-center gap-x-4 gap-y-2 border-b border-hairline bg-surface px-4 py-2.5 lg:px-5">
-        <Link href="/" className="text-[12px] font-semibold text-ink-muted hover:text-ink">
-          ← {t("b.back")}
+        <Link
+          href={viewer === "owner" ? "/owner" : "/"}
+          className="text-[12px] font-semibold text-ink-muted hover:text-ink"
+        >
+          ← {viewer === "owner" ? t("o.myBusinesses") : t("b.back")}
         </Link>
 
         <div className="min-w-0 flex-1">
@@ -351,6 +379,17 @@ export function BuilderApp({ slug }: { slug: string }) {
           />
           {!published ? t("b.neverPublished") : unpublished ? t("b.unpublished") : t("b.live")}
         </span>
+
+        {viewer === "admin" && (
+          <button
+            type="button"
+            disabled={inviting}
+            onClick={() => void invite()}
+            className="rounded-card border border-hairline bg-surface-raised px-2.5 py-1.5 text-[12px] font-semibold disabled:opacity-45"
+          >
+            {t("o.invite")}
+          </button>
+        )}
 
         {published && (
           <Link
@@ -560,8 +599,9 @@ function Centered({ children }: { children: ReactNode }) {
 }
 
 /** Same exchange as the console: the secret goes to the server once, a cookie comes back. */
-function Unlock({ onUnlocked }: { onUnlocked: () => void }) {
+function Unlock({ slug, onUnlocked }: { slug: string; onUnlocked: () => void }) {
   const { t } = useI18n();
+  const [operator, setOperator] = useState(false);
   const [secret, setSecret] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -588,6 +628,30 @@ function Unlock({ onUnlocked }: { onUnlocked: () => void }) {
             : t("list.unlockUnreachable"),
     );
   };
+
+  if (!operator) {
+    return (
+      <Centered>
+        <div className="space-y-3 text-left">
+          <p className="font-display text-[19px] font-bold text-ink">{t("o.title")}</p>
+          <p className="text-[13px] leading-snug">{t("o.intro")}</p>
+          <Link
+            href={`/owner?next=${encodeURIComponent(`/builder/${slug}`)}`}
+            className="glaze-brand block rounded-card px-4 py-3 text-center text-[14px] font-semibold text-brand-ink"
+          >
+            {t("o.ownerLogin")}
+          </Link>
+          <button
+            type="button"
+            onClick={() => setOperator(true)}
+            className="block w-full text-center text-[12px] font-semibold text-ink-muted hover:text-ink"
+          >
+            {t("o.operatorLogin")}
+          </button>
+        </div>
+      </Centered>
+    );
+  }
 
   return (
     <Centered>
@@ -622,6 +686,7 @@ function Unlock({ onUnlocked }: { onUnlocked: () => void }) {
 function Generate({
   slug,
   name,
+  home,
   ai,
   onAiChange,
   onDone,
@@ -629,6 +694,7 @@ function Generate({
 }: {
   slug: string;
   name: string;
+  home: string;
   ai: AiStatusView | null;
   onAiChange: (status: AiStatusView) => void;
   onDone: () => void;
@@ -699,7 +765,7 @@ function Generate({
           onUnauthorized={onUnauthorized}
         />
       </div>
-      <Link href="/" className="mt-3 block text-center text-[12px] font-semibold text-ink-muted">
+      <Link href={home} className="mt-3 block text-center text-[12px] font-semibold text-ink-muted">
         ← {t("b.back")}
       </Link>
     </Centered>

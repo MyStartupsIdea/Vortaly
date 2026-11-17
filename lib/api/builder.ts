@@ -16,11 +16,14 @@ export interface SiteView {
   storage: "supabase" | "file";
 }
 
+/** Who is looking: the platform operator, or the business's own owner. */
+export type Viewer = "admin" | "owner";
+
 export type LoadSite =
-  | { status: "ok"; site: SiteView }
+  | { status: "ok"; site: SiteView; viewer: Viewer }
   | { status: "unauthorized" }
   /** The tenant exists but nothing has been generated for it yet. */
-  | { status: "no_site"; tenant: { name: string; phone: string } }
+  | { status: "no_site"; tenant: { name: string; phone: string }; viewer: Viewer }
   | { status: "not_found" }
   | { status: "error" };
 
@@ -36,10 +39,11 @@ export async function fetchSite(slug: string): Promise<LoadSite> {
   try {
     const response = await fetch(`/api/builder/${slug}`, { cache: "no-store" });
     const body = await parse(response);
-    if (response.ok) return { status: "ok", site: body.site as SiteView };
+    const viewer: Viewer = body.viewer === "owner" ? "owner" : "admin";
+    if (response.ok) return { status: "ok", site: body.site as SiteView, viewer };
     if (response.status === 401) return { status: "unauthorized" };
     if (response.status === 404 && body.error === "site_not_found" && body.tenant) {
-      return { status: "no_site", tenant: body.tenant as { name: string; phone: string } };
+      return { status: "no_site", tenant: body.tenant as { name: string; phone: string }, viewer };
     }
     if (response.status === 404) return { status: "not_found" };
     return { status: "error" };

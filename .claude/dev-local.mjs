@@ -16,7 +16,9 @@ const child = spawn(process.execPath, [nextBin, "dev", "--port", "3100"], {
     NEXT_PUBLIC_SUPABASE_URL: "",
     NEXT_PUBLIC_SUPABASE_ANON_KEY: "",
     SUPABASE_SECRET_KEY: "",
-    TELEGRAM_BOT_TOKEN: "",
+    // A fake bot token: lets local tests sign Telegram payloads themselves.
+    // No real bot answers to it, so nothing can reach Telegram.
+    TELEGRAM_BOT_TOKEN: "123456:local-dev-token",
     CLICK_SECRET_KEY: "",
     CLICK_MERCHANT_ID: "",
     CLICK_SERVICE_ID: "",

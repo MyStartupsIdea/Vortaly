@@ -46,6 +46,10 @@ environment if the final domain differs.
   after that the builder asks the owner for their own Gemini, Groq or
   OpenRouter key, stored encrypted. Without `VORTALY_KEY_SECRET` production
   cannot store owners' keys, and AI stops once the free actions are spent.
+- Owner sign-in: apply `supabase/migrations/2026-11-18_owner_telegram.sql`,
+  set the bot domain with @BotFather `/setdomain`, and keep
+  `VORTALY_KEY_SECRET` set (it also signs owner sessions). Owners are linked to
+  a business only through a one-time invite from the builder (7 days).
 - Site builder AI needs at least one working `*_API_KEY_1` (Groq, Gemini,
   OpenRouter or OrcaRouter). With none, or with every provider down, a new
   business still gets a stock template for its trade and the log says so.

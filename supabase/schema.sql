@@ -215,6 +215,31 @@ create table if not exists site_ai (
 
 alter table site_ai enable row level security;
 
+-- -------------------------------------------- owners via Telegram --
+-- Owners sign in with Telegram; an operator invite links their account to a
+-- business. See lib/owner/store.ts. Server-only.
+create table if not exists owner_links (
+  salon_id          text        not null references salons(id) on delete cascade,
+  telegram_user_id  bigint      not null check (telegram_user_id > 0),
+  created_at        timestamptz not null default now(),
+  primary key (salon_id, telegram_user_id)
+);
+
+create index if not exists owner_links_telegram_idx on owner_links (telegram_user_id);
+
+create table if not exists owner_invites (
+  code_hash   text        primary key,
+  salon_id    text        not null references salons(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  expires_at  timestamptz not null,
+  used_at     timestamptz,
+  used_by     bigint
+);
+
+-- Server-only: RLS on with no policy keeps the anon key out entirely.
+alter table owner_links enable row level security;
+alter table owner_invites enable row level security;
+
 -- ------------------------------------------------------- row level security --
 -- The catalogue is public; bookings and payments are reachable only through
 -- the server, which uses the secret key and bypasses these policies.

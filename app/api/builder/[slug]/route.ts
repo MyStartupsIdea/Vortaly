@@ -31,7 +31,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
 
   const site = await loadSite(guarded.slug);
   if (site.status === "unavailable") return storageFailure("unavailable");
-  if (site.status === "ok") return json({ site: view(site.site) });
+  if (site.status === "ok") return json({ site: view(site.site), viewer: guarded.viewer });
 
   const lookup = await findSalonBySlug(guarded.slug);
   if (lookup.found && lookup.record) {
@@ -39,6 +39,7 @@ export async function GET(request: Request, context: { params: Promise<{ slug: s
       {
         error: "site_not_found",
         tenant: { name: lookup.record.name, phone: lookup.record.phone },
+        viewer: guarded.viewer,
       },
       404,
     );
