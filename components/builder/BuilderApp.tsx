@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { AiKeyPanel } from "@/components/builder/AiKeyPanel";
 import { ContentEditor } from "@/components/builder/ContentEditor";
 import { SharePanel } from "@/components/builder/SharePanel";
@@ -22,7 +22,6 @@ import {
 import { createOwnerInvite } from "@/lib/api/owner";
 import { unlockAdmin } from "@/lib/api/salons";
 import type { SiteSpec } from "@/lib/builder/spec";
-import { ROOT_DOMAIN } from "@/lib/data/projects";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n/dictionaries";
 import { cx } from "@/lib/cx";
@@ -46,6 +45,16 @@ interface ChatMessage {
   text: string;
   /** For AI answers: whether the draft actually changed. */
   changed?: boolean;
+}
+
+/**
+ * The host this app is served from (e.g. vortaly.vercel.app). Tenants open by
+ * path on it, so this is the real public address; read from the browser, empty
+ * during server rendering so the first client render matches.
+ */
+const noSubscription = () => () => {};
+function useSiteHost(): string {
+  return useSyncExternalStore(noSubscription, () => window.location.host, () => "");
 }
 
 const CHIPS: MessageKey[] = ["b.chip1", "b.chip2", "b.chip3", "b.chip4"];
@@ -80,6 +89,7 @@ export function BuilderApp({ slug }: { slug: string }) {
   const [viewer, setViewer] = useState<Viewer>("admin");
   const [inviting, setInviting] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const siteHost = useSiteHost();
 
   const pending = useRef<SiteSpec | null>(null);
   const timer = useRef<number | null>(null);
@@ -355,7 +365,7 @@ export function BuilderApp({ slug }: { slug: string }) {
             {spec.name}
           </p>
           <p className="truncate font-mono text-[11px] text-ink-muted">
-            {slug}.{ROOT_DOMAIN}
+            {siteHost ? `${siteHost}/${slug}` : `/${slug}`}
           </p>
         </div>
 
