@@ -169,6 +169,11 @@ export function OwnerHome() {
                       <span className="block truncate font-mono text-[11px] text-ink-muted">/{site.slug}</span>
                     </span>
                     <span className="flex flex-none gap-3 text-[13px] font-semibold">
+                      {site.published && (
+                        <Link href={`/${site.slug}`} target="_blank" className="text-ink hover:text-brand">
+                          {t("o.site")}
+                        </Link>
+                      )}
                       <Link href={`/owner/bookings?salon=${site.slug}`} className="text-ink hover:text-brand">
                         {t("ob.open")}
                       </Link>

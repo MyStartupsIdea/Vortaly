@@ -40,7 +40,11 @@ async function describe(owner: OwnerSession) {
   const sites = await Promise.all(
     slugs.map(async (slug) => {
       const site = await loadSite(slug);
-      return { slug, name: site.status === "ok" ? site.site.draft.name : slug };
+      return {
+        slug,
+        name: site.status === "ok" ? site.site.draft.name : slug,
+        published: site.status === "ok" && site.site.published !== null,
+      };
     }),
   );
   return { owner: { name: owner.name }, sites };

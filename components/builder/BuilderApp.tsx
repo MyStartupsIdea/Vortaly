@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { AiKeyPanel } from "@/components/builder/AiKeyPanel";
 import { ContentEditor } from "@/components/builder/ContentEditor";
+import { SharePanel } from "@/components/builder/SharePanel";
 import { TenantSite } from "@/components/tma/TenantSite";
 import { Button } from "@/components/ui/Button";
 import {
@@ -78,6 +79,7 @@ export function BuilderApp({ slug }: { slug: string }) {
   const [keyOpen, setKeyOpen] = useState(false);
   const [viewer, setViewer] = useState<Viewer>("admin");
   const [inviting, setInviting] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const pending = useRef<SiteSpec | null>(null);
   const timer = useRef<number | null>(null);
@@ -265,6 +267,8 @@ export function BuilderApp({ slug }: { slug: string }) {
         ? { tone: "ok", text: t("b.publishedOk") }
         : { tone: "warn", text: t(STAFF_WARNING[result.staffWarning ?? "unavailable"]) },
     );
+    // The next thing an owner needs is the link to send to customers.
+    setSharing(true);
   }, [flush, publishing, slug, t]);
 
   /* -------------------------------------------------------------- invite --- */
@@ -392,6 +396,16 @@ export function BuilderApp({ slug }: { slug: string }) {
         )}
 
         {published && (
+          <button
+            type="button"
+            onClick={() => setSharing((open) => !open)}
+            className="rounded-card border border-hairline bg-surface-raised px-2.5 py-1.5 text-[12px] font-semibold"
+          >
+            {t("share.button")}
+          </button>
+        )}
+
+        {published && (
           <Link
             href={`/${slug}`}
             target="_blank"
@@ -410,6 +424,8 @@ export function BuilderApp({ slug }: { slug: string }) {
           {publishing ? t("b.publishing") : t("b.publish")}
         </Button>
       </header>
+
+      {sharing && published && <SharePanel slug={slug} name={spec.name} onClose={() => setSharing(false)} />}
 
       {(notice || storage === "file") && (
         <div className="flex-none space-y-px">

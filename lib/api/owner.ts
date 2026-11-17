@@ -5,7 +5,7 @@
 
 export interface OwnerView {
   owner: { name: string } | null;
-  sites: Array<{ slug: string; name: string }>;
+  sites: Array<{ slug: string; name: string; published?: boolean }>;
 }
 
 export type LoginFailure = "invalid" | "not_configured" | "disabled" | "error";
