@@ -19,15 +19,14 @@ const BASE =
 
 const SIZES: Record<Size, string> = {
   sm: "text-[12px] px-2.5 py-1.5",
-  md: "text-[15px] px-6 py-3.5",
+  md: "text-[15px] px-5 py-3.5",
 };
 
-/* Only the primary action is a pill. Everything else keeps the card radius, so
-   shape signals importance instead of being uniform decoration. */
+/* One radius for every button; weight comes from fill, not shape. */
 const VARIANTS: Record<Variant, string> = {
-  primary: "glaze-brand text-brand-ink rounded-full",
+  primary: "glaze-brand text-brand-ink rounded-card hover:opacity-90",
   secondary:
-    "rounded-card border border-hairline bg-surface-raised text-ink",
+    "rounded-card border border-hairline bg-surface-raised text-ink hover:border-ink/30",
   ghost:
     "rounded-card text-ink-muted hover:text-ink",
 };

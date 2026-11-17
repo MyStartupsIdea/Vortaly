@@ -32,7 +32,7 @@ export function LANGUAGE_SWITCHER() {
             className={cx(
               "rounded-full px-3 py-1 text-[12px] font-semibold transition-colors duration-150",
               active
-                ? "bg-surface-raised text-petrol shadow-[0_1px_2px_rgba(15,46,44,0.12)]"
+                ? "bg-surface-raised text-ink shadow-none"
                 : "text-ink-muted hover:text-ink",
             )}
           >

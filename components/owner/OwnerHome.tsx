@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Button } from "@/components/ui/Button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { TELEGRAM_BOT, TelegramLogin } from "@/components/owner/TelegramLogin";
+import { VortalyLogo } from "@/components/ui/VortalyMark";
+import { cx } from "@/lib/cx";
 import { claim, fetchOwner, signIn, signOut, type OwnerView } from "@/lib/api/owner";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n/dictionaries";
@@ -125,79 +126,109 @@ export function OwnerHome() {
   const hasInvite = phase !== "loading" && typeof window !== "undefined" && Boolean(param("invite"));
 
   return (
-    <div className="grid min-h-screen place-items-center bg-surface-sunken px-4 py-10">
-      <div className="w-full max-w-[420px] rounded-card border border-hairline bg-surface p-6 shadow-[0_12px_40px_rgb(15_46_44/0.10)]">
-        <div className="flex items-center justify-between gap-3">
-          <p className="font-display text-[13px] font-bold tracking-[-0.01em] text-ink-muted">Vortaly</p>
-          <LanguageSwitcher />
-        </div>
+    <div className="min-h-screen bg-surface px-4 pt-5 pb-12 sm:px-8">
+      <header className="mx-auto flex w-full max-w-[640px] items-center justify-between gap-3">
+        <Link href="/start" aria-label="Vortaly">
+          <VortalyLogo />
+        </Link>
+        <LanguageSwitcher />
+      </header>
 
+      <main className="mx-auto mt-10 w-full max-w-[640px] sm:mt-14">
         {phase === "loading" || phase === "signing_in" || phase === "claiming" ? (
-          <p role="status" className="mt-8 mb-4 text-center text-[14px] text-ink-muted">
+          <p role="status" className="py-16 text-center text-[14px] text-ink-muted motion-safe:animate-pulse">
             {phase === "claiming" ? t("o.claiming") : t("o.signingIn")}
           </p>
         ) : phase === "signed_out" ? (
-          <>
-            <h1 className="mt-5 font-display text-[22px] leading-tight font-bold tracking-[-0.02em]">
-              {t("o.title")}
-            </h1>
-            <p className="mt-2 text-[14px] leading-snug text-ink-muted">
+          <section className="max-w-[440px]">
+            <h1 className="text-[30px] leading-[1.1] font-semibold tracking-[-0.03em]">{t("o.title")}</h1>
+            <p className="mt-3 text-[15px] leading-[1.5] text-ink-muted">
               {hasInvite ? t("o.inviteIntro") : t("o.intro")}
             </p>
             {TELEGRAM_BOT ? (
-              <div className="mt-6">
+              <div className="mt-7 flex justify-start">
                 <TelegramLogin onAuth={(user) => void login({ widget: user })} />
               </div>
             ) : (
-              <p className="mt-6 text-[13px] text-accent">{t("o.notConfigured")}</p>
+              <p className="mt-7 text-[13px] text-accent">{t("o.notConfigured")}</p>
             )}
-          </>
+            <p className="mt-8 text-[14px] text-ink-muted">
+              {t("o.noAccountYet")}{" "}
+              <Link href="/start" className="font-semibold text-ink underline decoration-hairline underline-offset-4 hover:decoration-ink">
+                {t("s.newBusiness")}
+              </Link>
+            </p>
+          </section>
         ) : (
           <>
-            <h1 className="mt-5 font-display text-[22px] leading-tight font-bold tracking-[-0.02em]">
-              {view?.owner?.name ? t("o.hello", { name: view.owner.name }) : t("o.helloNoName")}
-            </h1>
+            <div className="flex flex-wrap items-end justify-between gap-4">
+              <h1 className="text-[30px] leading-[1.1] font-semibold tracking-[-0.03em]">
+                {view?.owner?.name ? t("o.hello", { name: view.owner.name }) : t("o.helloNoName")}
+              </h1>
+              <Link
+                href="/start"
+                className="glaze-brand rounded-card px-4 py-2.5 text-[14px] font-semibold text-brand-ink hover:opacity-90"
+              >
+                + {t("s.newBusiness")}
+              </Link>
+            </div>
+
+            <h2 className="mt-10 text-[13px] font-medium text-ink-muted">{t("o.myBusinesses")}</h2>
             {view && view.sites.length > 0 ? (
-              <ul className="mt-5 space-y-2">
+              <ul className="mt-3 divide-y divide-hairline overflow-hidden rounded-card border border-hairline bg-surface-raised">
                 {view.sites.map((site) => (
-                  <li
-                    key={site.slug}
-                    className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-surface-raised px-4 py-3"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-[15px] font-semibold">{site.name}</span>
-                      <span className="block truncate font-mono text-[11px] text-ink-muted">/{site.slug}</span>
-                    </span>
-                    <span className="flex flex-none gap-3 text-[13px] font-semibold">
-                      {site.published && (
-                        <Link href={`/${site.slug}`} target="_blank" className="text-ink hover:text-brand">
-                          {t("o.site")}
-                        </Link>
-                      )}
-                      <Link href={`/owner/bookings?salon=${site.slug}`} className="text-ink hover:text-brand">
+                  <li key={site.slug} className="px-4 py-4 sm:px-5">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 truncate text-[16px] font-semibold">{site.name}</span>
+                      <span
+                        className={cx(
+                          "flex-none text-[12px] font-medium",
+                          site.published ? "text-lapis" : "text-ink-muted",
+                        )}
+                      >
+                        {site.published ? t("b.live") : t("b.neverPublished")}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-[12px] text-ink-muted tabular-nums">/{site.slug}</p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-[13px] font-semibold">
+                      <Link
+                        href={`/builder/${site.slug}`}
+                        className="rounded-tile bg-ink px-3 py-1.5 text-surface hover:opacity-90"
+                      >
+                        {t("o.open")}
+                      </Link>
+                      <Link
+                        href={`/owner/bookings?salon=${site.slug}`}
+                        className="rounded-tile border border-hairline px-3 py-1.5 hover:border-ink/30"
+                      >
                         {t("ob.open")}
                       </Link>
-                      <Link href={`/builder/${site.slug}`} className="text-brand">
-                        {t("o.open")} →
-                      </Link>
-                    </span>
+                      {site.published && (
+                        <Link
+                          href={`/${site.slug}`}
+                          target="_blank"
+                          className="rounded-tile border border-hairline px-3 py-1.5 hover:border-ink/30"
+                        >
+                          {t("o.site")} ↗
+                        </Link>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-3 text-[14px] leading-snug text-ink-muted">{t("o.noSites")}</p>
+              <p className="mt-3 rounded-card border border-dashed border-hairline px-5 py-8 text-[14px] leading-snug text-ink-muted">
+                {t("o.noSites")}
+              </p>
             )}
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <Link
-                href="/start"
-                className="glaze-brand rounded-card px-4 py-2.5 text-[13px] font-semibold text-brand-ink"
-              >
-                {t("s.newBusiness")}
-              </Link>
-              <Button variant="secondary" size="sm" onClick={() => void logout()}>
-                {t("o.logout")}
-              </Button>
-            </div>
+
+            <button
+              type="button"
+              onClick={() => void logout()}
+              className="mt-10 text-[13px] font-medium text-ink-muted hover:text-ink"
+            >
+              {t("o.logout")}
+            </button>
           </>
         )}
 
@@ -206,7 +237,7 @@ export function OwnerHome() {
             {error}
           </p>
         )}
-      </div>
+      </main>
     </div>
   );
 }

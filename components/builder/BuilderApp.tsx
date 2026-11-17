@@ -603,7 +603,7 @@ export function BuilderApp({ slug }: { slug: string }) {
           <p className="flex-none text-[12px] text-ink-muted">{t("b.previewLabel")}</p>
           {/* The transform makes this box the containing block for anything
               positioned inside the page, so nothing escapes the phone frame. */}
-          <div className="min-h-0 w-full max-w-[400px] flex-1 overflow-hidden rounded-[28px] border border-hairline bg-surface shadow-[0_12px_40px_rgb(15_46_44/0.14)] [transform:translateZ(0)]">
+          <div className="min-h-0 w-full max-w-[400px] flex-1 overflow-hidden rounded-[28px] border border-hairline bg-surface float [transform:translateZ(0)]">
             <div className="h-full overflow-y-auto">
               <TenantSite spec={spec} preview />
             </div>

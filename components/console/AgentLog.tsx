@@ -107,9 +107,9 @@ export function AgentLog({
                 className={cx(
                   "grid size-5 flex-none place-items-center rounded-tile font-mono text-[10px] font-bold tabular-nums",
                   state === "done"
-                    ? "bg-turquoise text-petrol"
+                    ? "bg-turquoise text-ink"
                     : state === "running"
-                      ? "bg-saffron text-petrol motion-safe:animate-pulse"
+                      ? "bg-saffron text-ink motion-safe:animate-pulse"
                       : state === "warn"
                         ? "bg-accent text-porcelain"
                         : "bg-porcelain/10 text-porcelain/45",

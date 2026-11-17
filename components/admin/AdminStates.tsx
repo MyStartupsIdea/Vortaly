@@ -13,7 +13,7 @@ import type { ReactNode } from "react";
 /** The panel heading, so both sections keep the same type treatment. */
 function AdminSectionTitle({ children }: { children: ReactNode }) {
   return (
-    <h2 className="font-display text-[15px] font-bold tracking-[-0.02em] text-petrol">
+    <h2 className="font-display text-[15px] font-bold tracking-[-0.02em] text-ink">
       {children}
     </h2>
   );

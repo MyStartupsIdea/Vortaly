@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Manrope, Unbounded } from "next/font/google";
+import { Onest } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { LocaleProvider } from "@/lib/i18n/context";
@@ -7,17 +7,10 @@ import { I18nProvider } from "@/lib/i18n/provider";
 import { TelegramProvider } from "@/lib/telegram-provider";
 import { BookingProvider } from "@/lib/booking/store";
 
-/** Wide architectural display — headings and the salon wordmark only. */
-const unbounded = Unbounded({
+/** One family for everything: display and UI (see DESIGN.md). */
+const onest = Onest({
   subsets: ["latin", "latin-ext", "cyrillic"],
-  variable: "--font-unbounded",
-  display: "swap",
-});
-
-/** Compact humanist sans for everything you actually read. */
-const manrope = Manrope({
-  subsets: ["latin", "latin-ext", "cyrillic"],
-  variable: "--font-manrope",
+  variable: "--font-onest",
   display: "swap",
 });
 
@@ -37,14 +30,14 @@ export const viewport: Viewport = {
   userScalable: false,
   interactiveWidget: "resizes-content",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#edf1ef" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b1f1e" },
+    { media: "(prefers-color-scheme: light)", color: "#f6f5f1" },
+    { media: "(prefers-color-scheme: dark)", color: "#121211" },
   ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru" className={`${unbounded.variable} ${manrope.variable}`}>
+    <html lang="ru" className={onest.variable}>
       <head>
         {/* Must run before hydration so window.Telegram exists on first render. */}
         <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />

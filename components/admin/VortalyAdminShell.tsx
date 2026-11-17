@@ -23,7 +23,7 @@ export function VortalyAdminShell({ children }: { children: ReactNode }) {
       <header className="shrink-0 border-b border-hairline bg-surface-raised">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
-            <span className="font-display text-lg font-bold tracking-[-0.03em] text-petrol">
+            <span className="font-display text-lg font-bold tracking-[-0.03em] text-ink">
               {salon.name}
             </span>
             <span className="hidden sm:inline text-[13px] text-ink-muted">
@@ -33,7 +33,7 @@ export function VortalyAdminShell({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3">
             <a
               href={`tel:+${salon.phone}`}
-              className="rounded-full border border-hairline px-3 py-1.5 text-[13px] font-semibold text-petrol hover:bg-surface-sunken sm:not-transparent"
+              className="rounded-full border border-hairline px-3 py-1.5 text-[13px] font-semibold text-ink hover:bg-surface-sunken sm:not-transparent"
             >
               {formatPhone(salon.phone)}
             </a>
@@ -85,7 +85,7 @@ export function VortalyAdminShell({ children }: { children: ReactNode }) {
           {/* Salon summary card under the nav. */}
           <div className="mt-auto border-t border-hairline p-3">
             <p className="text-[11px] font-medium text-ink-muted">{t("admin.ownedBy")}</p>
-            <p className="font-display text-[15px] font-bold text-petrol">{salon.name}</p>
+            <p className="font-display text-[15px] font-bold text-ink">{salon.name}</p>
             <p className="text-[12px] text-ink-muted">{tr(salon.tagline)}</p>
           </div>
         </aside>

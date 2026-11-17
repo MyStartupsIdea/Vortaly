@@ -1,67 +1,56 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Vortaly — "majolica" design tokens.
-   Grounded in Uzbek glazed tilework: porcelain ground, oxidised-copper ink,
-   Samarkand turquoise, pomegranate and saffron.
+   Vortaly — "paper and ink" (see DESIGN.md).
+   Warm paper, near-black ink, one line of lapis. Business sites override
+   --color-brand and --color-accent with their own theme (themeStyle).
 --------------------------------------------------------------------------- */
 
 @theme {
-  /* Raw palette */
-  --color-porcelain: #edf1ef;
-  --color-petrol: #0f2e2c;
-  --color-petrol-soft: #1f4b45;
-  --color-turquoise: #0e7c86;
-  --color-turquoise-deep: #0a5c64;
-  --color-pomegranate: #b2322b;
-  --color-saffron: #e0a32e;
-
-  /* Semantic surfaces — overridden under dark mode below */
-  --color-surface: #edf1ef;
-  --color-surface-raised: #f7f9f8;
-  --color-surface-sunken: #e2e8e5;
-  --color-tile: #fbfcfc;
-  --color-tile-taken: #d5dbd7;
-  --color-ink: #0f2e2c;
-  --color-ink-muted: #5a6b67;
-  --color-hairline: rgba(15, 46, 44, 0.12);
-  --color-brand: #0e7c86;
+  --color-surface: #f6f5f1;
+  --color-surface-raised: #ffffff;
+  --color-surface-sunken: #eeece6;
+  --color-tile: #ffffff;
+  --color-tile-taken: #e7e5df;
+  --color-ink: #1b1a17;
+  --color-ink-muted: #6e6a62;
+  --color-hairline: rgba(27, 26, 23, 0.1);
+  --color-brand: #1b1a17;
   --color-brand-ink: #ffffff;
-  --color-accent: #b2322b;
+  --color-accent: #b42318;
+  --color-lapis: #2e4bd6;
+  --color-saffron: #b7791f;
 
-  /* Radii carry meaning: tiles are nearly square, sheets are generous */
-  --radius-tile: 0.375rem;
-  --radius-card: 0.875rem;
-  --radius-sheet: 1.5rem;
+  /* The console's terminal: a fixed dark panel in both modes. */
+  --color-petrol: #1b1a17;
+  --color-porcelain: #f6f5f1;
+  /* Kept for the business sites' palettes and older references. */
+  --color-turquoise: #0e7c86;
+  --color-pomegranate: #b2322b;
 
-  /* Glaze sheen, re-pointed under dark mode so one utility serves both */
-  --sheen-a: rgb(255 255 255 / 0.72);
-  --sheen-b: rgb(255 255 255 / 0.1);
-  --sheen-top: rgb(255 255 255 / 0.55);
-  --sheen-bottom: rgb(15 46 44 / 0.06);
+  --radius-tile: 0.5rem;
+  --radius-card: 0.75rem;
+  --radius-sheet: 1.25rem;
 
-  --font-display: var(--font-unbounded), ui-sans-serif, sans-serif;
-  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-surface: #0b1f1e;
-    --color-surface-raised: #122b29;
-    --color-surface-sunken: #081817;
-    --color-tile: #17302e;
-    --color-tile-taken: #102423;
-    --color-ink: #e6edea;
-    --color-ink-muted: #8fa39e;
-    --color-hairline: rgba(230, 237, 234, 0.14);
-    --color-brand: #19a0ab;
-    --color-brand-ink: #04201f;
-    --color-accent: #d8544c;
-
-    --sheen-a: rgb(255 255 255 / 0.1);
-    --sheen-b: rgb(255 255 255 / 0.02);
-    --sheen-top: rgb(255 255 255 / 0.08);
-    --sheen-bottom: rgb(0 0 0 / 0.25);
+    --color-surface: #121211;
+    --color-surface-raised: #1b1b19;
+    --color-surface-sunken: #0c0c0b;
+    --color-tile: #1f1f1c;
+    --color-tile-taken: #161614;
+    --color-ink: #edebe5;
+    --color-ink-muted: #a09b91;
+    --color-hairline: rgba(237, 235, 229, 0.12);
+    --color-brand: #edebe5;
+    --color-brand-ink: #121211;
+    --color-accent: #f0644f;
+    --color-lapis: #8ea2ff;
+    --color-saffron: #e3b04b;
   }
 }
 
@@ -79,6 +68,13 @@ body {
   min-height: var(--tg-viewport-stable-height, 100vh);
   overscroll-behavior-y: contain;
   text-rendering: optimizeLegibility;
+  font-feature-settings: "cv11", "ss01";
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
 }
 
 /* Telegram's own webview already handles long-press; selecting button labels
@@ -92,7 +88,7 @@ button,
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-brand);
+  outline: 2px solid var(--color-lapis);
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -110,49 +106,33 @@ button,
 
 /* ------------------------------------------------------------- utilities --- */
 
-/* The glaze: a specular sheen across a tile, as on a fired ceramic face. */
+/* Surfaces are flat: a tile is a raised face with a hairline, nothing more.
+   The names stay so components keep working across the redesign. */
 @utility glaze {
   background-color: var(--color-tile);
-  background-image: linear-gradient(
-    152deg,
-    var(--sheen-a) 0%,
-    var(--sheen-b) 38%,
-    rgb(255 255 255 / 0) 62%
-  );
-  box-shadow:
-    inset 0 1px 0 var(--sheen-top),
-    inset 0 -1px 0 var(--sheen-bottom);
+  box-shadow: inset 0 0 0 1px var(--color-hairline);
 }
 
-/* Unglazed biscuit: the matte, slightly sunken face of a taken slot. */
+/* A taken slot: sunken and quiet. */
 @utility biscuit {
   background-color: var(--color-tile-taken);
-  box-shadow: inset 0 1px 2px rgb(15 46 44 / 0.1);
 }
 
-/* Glazed in pomegranate — the one loud moment in the interface. */
+/* The chosen thing: solid accent (on business sites, their theme accent). */
 @utility glaze-accent {
   background-color: var(--color-accent);
-  background-image: linear-gradient(
-    152deg,
-    rgb(255 255 255 / 0.4) 0%,
-    rgb(255 255 255 / 0.06) 44%,
-    rgb(0 0 0 / 0.08) 100%
-  );
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.4),
-    0 1px 10px rgb(178 50 43 / 0.35);
 }
 
+/* The primary action: solid brand (ink on Vortaly, theme colour on a site). */
 @utility glaze-brand {
   background-color: var(--color-brand);
-  background-image: linear-gradient(
-    152deg,
-    rgb(255 255 255 / 0.34) 0%,
-    rgb(255 255 255 / 0.05) 44%,
-    rgb(0 0 0 / 0.08) 100%
-  );
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35);
+}
+
+/* The only shadow: for things that float above the page. */
+@utility float {
+  box-shadow:
+    0 1px 2px rgb(27 26 23 / 0.04),
+    0 12px 32px -12px rgb(27 26 23 / 0.18);
 }
 
 @utility hairline-y {

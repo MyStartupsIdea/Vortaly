@@ -33,7 +33,7 @@ export function TodaySummary({
       <div className="flex items-center gap-4 rounded-card border border-hairline bg-surface-raised px-4 py-3">
         <div>
           <p className="text-[11px] font-medium text-ink-muted">{t("admin.todayTitle")}</p>
-          <p className="font-display text-2xl font-bold text-petrol tabular-nums">
+          <p className="font-display text-2xl font-bold text-ink tabular-nums">
             {todayCount}
           </p>
         </div>

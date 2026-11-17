@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { TELEGRAM_BOT, TelegramLogin } from "@/components/owner/TelegramLogin";
+import { TenantSite } from "@/components/tma/TenantSite";
+import { VortalyLogo } from "@/components/ui/VortalyMark";
+import { templateSpec } from "@/lib/builder/spec";
+import { detectKind } from "@/lib/console/brief";
 import { fetchOwner, signIn, startBusiness, type StartFailure } from "@/lib/api/owner";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n/dictionaries";
@@ -117,22 +121,36 @@ export function StartBusiness() {
   const ready = name.trim().length >= 2 && phone.replace(/\D/g, "").length >= 9 && brief.trim().length >= 8;
   const field = (which: "name" | "phone" | "brief") =>
     cx(
-      "w-full rounded-card border bg-surface-raised px-3 text-[15px] text-ink outline-none focus:border-brand",
+      "w-full rounded-card border bg-surface-raised px-3.5 text-[15px] text-ink outline-none transition-[border-color,box-shadow] duration-150 placeholder:text-ink-muted/70 focus:border-lapis focus:shadow-[0_0_0_4px_color-mix(in_srgb,var(--color-lapis)_14%,transparent)]",
       badField === which ? "border-accent" : "border-hairline",
     );
 
   return (
-    <div className="min-h-screen bg-surface-sunken px-4 py-6">
-      <div className="mx-auto w-full max-w-[560px]">
-        <div className="flex items-center justify-between gap-3">
-          <Link href="/owner" className="font-display text-[14px] font-bold tracking-[-0.01em] text-ink-muted">
-            Vortaly
-          </Link>
-          <LanguageSwitcher />
-        </div>
+    <div className="min-h-screen bg-surface px-4 pt-5 pb-12 sm:px-8">
+      <header className="mx-auto flex w-full max-w-[1120px] items-center justify-between gap-3">
+        <Link href="/owner" aria-label="Vortaly">
+          <VortalyLogo />
+        </Link>
+        <LanguageSwitcher />
+      </header>
 
-        <h1 className="mt-6 font-display text-[26px] leading-[1.15] font-bold tracking-[-0.02em]">{t("s.title")}</h1>
-        <p className="mt-2 text-[15px] leading-snug text-ink-muted">{t("s.intro")}</p>
+      <div className="mx-auto mt-10 grid w-full max-w-[1120px] gap-14 sm:mt-16 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-20">
+      <div className="w-full max-w-[540px]">
+        <h1 className="text-[32px] leading-[1.08] font-semibold tracking-[-0.03em] text-balance sm:text-[44px]">
+          {t("s.title")}
+        </h1>
+        <p className="mt-4 max-w-[46ch] text-[16px] leading-[1.5] text-ink-muted">{t("s.intro")}</p>
+
+        <ol className="mt-6 flex flex-wrap gap-x-5 gap-y-1.5 text-[13px] text-ink-muted">
+          {(["s.step1", "s.step2", "s.step3"] as const).map((key, i) => (
+            <li key={key} className="flex items-center gap-2">
+              <span className="grid size-5 place-items-center rounded-full border border-hairline text-[11px] font-semibold text-ink tabular-nums">
+                {i + 1}
+              </span>
+              {t(key)}
+            </li>
+          ))}
+        </ol>
 
         {phase === "building" ? (
           <div role="status" className="mt-8 rounded-card border border-hairline bg-surface p-6 text-center">
@@ -155,8 +173,10 @@ export function StartBusiness() {
 
             <label className="block">
               <span className="text-[13px] font-semibold">{t("s.phone")}</span>
-              <span className="mt-1.5 flex items-center gap-2">
-                <span className="text-[15px] text-ink-muted">+998</span>
+              <span className="relative mt-1.5 block">
+                <span className="pointer-events-none absolute inset-y-0 left-3.5 flex items-center text-[15px] text-ink-muted tabular-nums">
+                  +998
+                </span>
                 <input
                   value={phone}
                   onChange={(e) => setPhone(e.target.value.replace(/[^\d\s-]/g, ""))}
@@ -164,7 +184,7 @@ export function StartBusiness() {
                   autoComplete="tel-national"
                   maxLength={14}
                   placeholder="90 123 45 67"
-                  className={cx(field("phone"), "h-12")}
+                  className={cx(field("phone"), "h-12 pl-[3.6rem] tabular-nums")}
                 />
               </span>
             </label>
@@ -225,6 +245,44 @@ export function StartBusiness() {
           </p>
         )}
       </div>
+
+      <Preview name={name} brief={brief} />
+      </div>
     </div>
+  );
+}
+
+/**
+ * What the owner is about to get, drawn with the real customer page and a
+ * stock template for the trade their description points to. It is labelled
+ * as an example: the AI writes the actual texts and prices.
+ */
+function Preview({ name, brief }: { name: string; brief: string }) {
+  const { t } = useI18n();
+  const deferredName = useDeferredValue(name);
+  const deferredBrief = useDeferredValue(brief);
+  const kind = detectKind(deferredBrief);
+  const spec = useMemo(
+    () =>
+      templateSpec({
+        slug: "preview",
+        name: deferredName.trim() || t("s.previewName"),
+        phone: "901234567",
+        kind: kind === "custom" ? "salon" : kind,
+      }),
+    [deferredName, kind, t],
+  );
+
+  return (
+    <aside aria-label={t("s.previewLabel")} className="hidden lg:block">
+      <div className="sticky top-8">
+        <div className="float h-[640px] overflow-hidden rounded-[28px] border border-hairline bg-surface [transform:translateZ(0)]">
+          <div className="pointer-events-none h-full overflow-hidden select-none" inert>
+            <TenantSite spec={spec} preview />
+          </div>
+        </div>
+        <p className="mt-3 text-center text-[12px] text-ink-muted">{t("s.previewLabel")}</p>
+      </div>
+    </aside>
   );
 }

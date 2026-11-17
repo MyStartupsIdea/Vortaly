@@ -78,16 +78,16 @@ export function StatusBadge({
 
   const colorMap = {
     draft: "bg-ink-muted/10 text-ink-muted",
-    pending: "bg-saffron/10 text-saffron",
-    confirmed: "bg-brand/10 text-brand",
-    paid: "bg-turquoise/10 text-turquoise",
-    cancelled: "bg-pomegranate/10 text-pomegranate",
+    pending: "bg-saffron/12 text-saffron",
+    confirmed: "bg-lapis/10 text-lapis",
+    paid: "bg-ink/8 text-ink",
+    cancelled: "bg-ink-muted/10 text-ink-muted line-through decoration-ink-muted/40",
   };
 
   return (
     <span
       className={cx(
-        "inline-block rounded-full px-2 py-0.5 text-[11px] font-medium",
+        "inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap",
         colorMap[status],
       )}
     >
