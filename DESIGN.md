@@ -1,4 +1,4 @@
-# Vortaly — design system: "Paper and ink"
+# Vortaly — design system: "Lapis"
 
 Replaces the earlier "majolica" world (turquoise glaze, Unbounded) for
 Vortaly's own surfaces. Business sites keep their six themes: they are the
@@ -19,19 +19,22 @@ from the one colour that is allowed to speak.
 
 Tokens live in `app/globals.css` (`@theme`), redefined for dark mode.
 
+**No grey, anywhere** (owner's rule). Every neutral is tinted lapis; dark
+mode is deep lapis, never black.
+
 | Token | Light | Dark | Use |
 | --- | --- | --- | --- |
-| `surface` | `#F6F5F1` paper | `#121211` | page ground |
-| `surface-raised` | `#FFFFFF` | `#1B1B19` | cards, inputs, sheets |
-| `surface-sunken` | `#EEECE6` | `#0C0C0B` | wells, app shells behind panels |
-| `ink` | `#1B1A17` | `#EDEBE5` | text |
-| `ink-muted` | `#6E6A62` | `#A09B91` | secondary text (≥ 4.5:1 on surface) |
-| `hairline` | ink at 10% | ink at 12% | every border and divider |
-| `brand` | `#1B1A17` | `#EDEBE5` | primary action, selection (ink, not a hue) |
-| `brand-ink` | `#FFFFFF` | `#121211` | text on brand |
-| `lapis` | `#2E4BD6` | `#8EA2FF` | focus ring, AI moments, links, the mark |
-| `accent` | `#B42318` | `#F0644F` | errors and destructive actions only |
-| `saffron` | `#B7791F` | `#E3B04B` | warnings, "waiting" status |
+| `surface` | `#F3F6FF` | `#071233` | page ground |
+| `surface-raised` | `#FFFFFF` | `#0E1C4A` | cards, forms, sheets |
+| `surface-sunken` | `#E4EBFF` | `#050C24` | chips, wells, secondary buttons |
+| `ink` | `#0A1A4A` | `#EEF3FF` | text |
+| `ink-muted` | `#3B56A3` | `#A3B8F7` | secondary text |
+| `hairline` | lapis at 16% | lapis at 20% | field borders only |
+| `brand` | `#1D4ED8` | `#5B82FF` | primary action, the lapis field on /start |
+| `brand-ink` | `#FFFFFF` | `#FFFFFF` | text on brand |
+| `lapis` | `#1D4ED8` | `#8AA6FF` | focus ring, links, the mark |
+| `accent` | `#D92D20` | `#FF6B5B` | errors and destructive actions only |
+| `saffron` | `#B86E00` | `#F5B83D` | warnings, "waiting" status |
 
 Rules: lapis appears at most once or twice per screen. Red means "something
 is wrong or will be destroyed", never decoration. Status pills are tinted
@@ -54,7 +57,7 @@ both `--font-sans` and `--font-display`.
   (`radius-card`), sheets and phone frames 20 px (`radius-sheet`).
 - Depth is a 1 px hairline and a change of surface. Shadows only on things
   that float (a phone preview, a popover): one soft, low-opacity shadow.
-- The primary button is a solid ink block, 12 px radius, not a pill.
+- Buttons are fully round pills: primary solid lapis, secondary a sunken lapis wash.
 
 ## Space
 

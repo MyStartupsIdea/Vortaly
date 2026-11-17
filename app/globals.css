@@ -1,36 +1,37 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Vortaly — "paper and ink" (see DESIGN.md).
-   Warm paper, near-black ink, one line of lapis. Business sites override
-   --color-brand and --color-accent with their own theme (themeStyle).
+   Vortaly — "lapis" (see DESIGN.md).
+   No grey anywhere: white and pale lapis grounds, deep lapis ink, a vivid
+   lapis action. Red only for errors. Business sites override --color-brand
+   and --color-accent with their own theme (themeStyle).
 --------------------------------------------------------------------------- */
 
 @theme {
-  --color-surface: #f6f5f1;
+  --color-surface: #f3f6ff;
   --color-surface-raised: #ffffff;
-  --color-surface-sunken: #eeece6;
+  --color-surface-sunken: #e4ebff;
   --color-tile: #ffffff;
-  --color-tile-taken: #e7e5df;
-  --color-ink: #1b1a17;
-  --color-ink-muted: #6e6a62;
-  --color-hairline: rgba(27, 26, 23, 0.1);
-  --color-brand: #1b1a17;
+  --color-tile-taken: #dbe4fb;
+  --color-ink: #0a1a4a;
+  --color-ink-muted: #3b56a3;
+  --color-hairline: rgba(29, 78, 216, 0.16);
+  --color-brand: #1d4ed8;
   --color-brand-ink: #ffffff;
-  --color-accent: #b42318;
-  --color-lapis: #2e4bd6;
-  --color-saffron: #b7791f;
+  --color-accent: #d92d20;
+  --color-lapis: #1d4ed8;
+  --color-saffron: #b86e00;
 
-  /* The console's terminal: a fixed dark panel in both modes. */
-  --color-petrol: #1b1a17;
-  --color-porcelain: #f6f5f1;
+  /* The console's terminal: a fixed deep-lapis panel in both modes. */
+  --color-petrol: #0a1a4a;
+  --color-porcelain: #f3f6ff;
   /* Kept for the business sites' palettes and older references. */
   --color-turquoise: #0e7c86;
   --color-pomegranate: #b2322b;
 
-  --radius-tile: 0.5rem;
-  --radius-card: 0.75rem;
-  --radius-sheet: 1.25rem;
+  --radius-tile: 0.625rem;
+  --radius-card: 1rem;
+  --radius-sheet: 1.5rem;
 
   --font-display: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
@@ -38,19 +39,19 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-surface: #121211;
-    --color-surface-raised: #1b1b19;
-    --color-surface-sunken: #0c0c0b;
-    --color-tile: #1f1f1c;
-    --color-tile-taken: #161614;
-    --color-ink: #edebe5;
-    --color-ink-muted: #a09b91;
-    --color-hairline: rgba(237, 235, 229, 0.12);
-    --color-brand: #edebe5;
-    --color-brand-ink: #121211;
-    --color-accent: #f0644f;
-    --color-lapis: #8ea2ff;
-    --color-saffron: #e3b04b;
+    --color-surface: #071233;
+    --color-surface-raised: #0e1c4a;
+    --color-surface-sunken: #050c24;
+    --color-tile: #12235c;
+    --color-tile-taken: #0a1640;
+    --color-ink: #eef3ff;
+    --color-ink-muted: #a3b8f7;
+    --color-hairline: rgba(163, 184, 247, 0.2);
+    --color-brand: #5b82ff;
+    --color-brand-ink: #ffffff;
+    --color-accent: #ff6b5b;
+    --color-lapis: #8aa6ff;
+    --color-saffron: #f5b83d;
   }
 }
 
@@ -131,8 +132,8 @@ button,
 /* The only shadow: for things that float above the page. */
 @utility float {
   box-shadow:
-    0 1px 2px rgb(27 26 23 / 0.04),
-    0 12px 32px -12px rgb(27 26 23 / 0.18);
+    0 1px 2px rgb(10 26 74 / 0.06),
+    0 24px 48px -20px rgb(29 78 216 / 0.35);
 }
 
 @utility hairline-y {

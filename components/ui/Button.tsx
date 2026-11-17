@@ -24,11 +24,11 @@ const SIZES: Record<Size, string> = {
 
 /* One radius for every button; weight comes from fill, not shape. */
 const VARIANTS: Record<Variant, string> = {
-  primary: "glaze-brand text-brand-ink rounded-card hover:opacity-90",
+  primary: "glaze-brand text-brand-ink rounded-full hover:brightness-110",
   secondary:
-    "rounded-card border border-hairline bg-surface-raised text-ink hover:border-ink/30",
+    "rounded-full bg-surface-sunken text-ink hover:bg-brand hover:text-brand-ink",
   ghost:
-    "rounded-card text-ink-muted hover:text-ink",
+    "rounded-full text-brand hover:bg-surface-sunken",
 };
 
 export function Button({
