@@ -1,5 +1,7 @@
 # Launch checklist
 
+Step-by-step deploy to Vercel without a domain (in Russian): `docs/deploy-vercel.md`.
+
 The product is **Vortaly**: Vortaly AI platform, Vortaly Mini App and Vortaly
 Console. The name is used everywhere, including the technical surface:
 `VORTALY_*` env vars, component and file names, the `vortaly.*` storage keys,

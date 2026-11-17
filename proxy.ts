@@ -7,7 +7,7 @@ import {
   isValidSlug,
   type SalonRecord,
 } from "@/lib/supabase/salons";
-import { ROOT_DOMAIN, TENANT_SUFFIX } from "@/lib/domain/config";
+import { ROOT_DOMAIN, TENANT_SUBDOMAINS_ENABLED, TENANT_SUFFIX } from "@/lib/domain/config";
 
 /**
  * Multi-tenant subdomain proxy (Next 16 renamed middleware.ts -> proxy.ts).
@@ -59,7 +59,7 @@ export async function proxy(request: NextRequest) {
   let salonId: string | null = null;
   let tenantType: "platform" | "tenant" | "unknown" = "platform";
 
-  if (hostNoPort.endsWith(TENANT_SUFFIX)) {
+  if (TENANT_SUBDOMAINS_ENABLED && hostNoPort.endsWith(TENANT_SUFFIX)) {
     const subdomain = hostNoPort.slice(0, -TENANT_SUFFIX.length);
     if (subdomain && subdomain.length >= 2 && isValidSlug(subdomain)) {
       // Authoritative lookup — the slug is only a "claimed" tenant if it maps
