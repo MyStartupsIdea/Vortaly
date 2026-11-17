@@ -15,7 +15,8 @@
    - `supabase/schema.sql` — все таблицы, RLS и сид;
    - `supabase/migrations/2026-11-16_sites.sql` и
      `supabase/migrations/2026-11-17_site_ai.sql` и
-     `supabase/migrations/2026-11-18_owner_telegram.sql` — повторный запуск
+     `supabase/migrations/2026-11-18_owner_telegram.sql`,
+     `supabase/migrations/2026-11-18_bookings_no_overlap.sql` — повторный запуск
      безопасен, они уже входят в `schema.sql`.
 3. Запомните регион проекта (Settings → General): он понадобится в шаге 4.
 

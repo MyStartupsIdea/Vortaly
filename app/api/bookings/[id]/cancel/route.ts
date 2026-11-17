@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { customerCancelBooking } from "@/lib/domain/customer-bookings";
+import { resolvedSalonId } from "@/lib/domain/tenant-context";
+import { notifyCancelledBooking } from "@/lib/telegram/notify";
 
 /**
  * POST /api/bookings/<id>/cancel
@@ -30,7 +32,20 @@ export async function POST(
   request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  return customerCancelBooking(request, context);
+  const response = await customerCancelBooking(request, context);
+
+  // Tell the owners only when this call is what cancelled it.
+  if (response.status === 200) {
+    const body = (await response.clone().json().catch(() => null)) as
+      | { id?: string; unchanged?: boolean }
+      | null;
+    const salonId = resolvedSalonId(request);
+    if (body?.id && body.unchanged === false && salonId) {
+      const id = body.id;
+      after(() => notifyCancelledBooking(id, salonId));
+    }
+  }
+  return response;
 }
 
 // Cancelling is a mutation; it must never be reachable with a read verb that a

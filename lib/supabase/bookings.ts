@@ -133,6 +133,7 @@ export function classifyDbFailure(error: unknown): DbFailureKind {
       : String(error).toLowerCase();
 
   if (code === "23505") return "conflict"; // unique_violation
+  if (code === "23P01") return "conflict"; // exclusion_violation: overlapping booking
   if (code.startsWith("23")) return "rejected"; // check / fk / not-null
   if (code.startsWith("22")) return "rejected"; // bad literal, e.g. a non-uuid id
   // PGRST116: the result did not hold exactly one row. An authoritative answer

@@ -114,6 +114,29 @@ export async function ownedSlugs(telegramId: number): Promise<string[] | null> {
   return file ? file.links.filter((link) => link.telegram_user_id === telegramId).map((link) => link.salon_id) : null;
 }
 
+/** Telegram ids of everyone who owns this business, or null when storage cannot answer. */
+export async function ownersOf(slug: string): Promise<number[] | null> {
+  const store = backend();
+  if (store.kind === "none") return null;
+
+  if (store.kind === "db") {
+    const { data, error } = await store.db
+      .from("owner_links")
+      .select("telegram_user_id")
+      .eq("salon_id", slug);
+    if (!error) {
+      return (data ?? []).map((row: { telegram_user_id: number | string }) => Number(row.telegram_user_id));
+    }
+    if (!(isMissingTable(error) && devMode())) {
+      console.error("[owner.store.ownersOf]", error.code ?? "", error.message);
+      return null;
+    }
+  }
+
+  const file = await readData();
+  return file ? file.links.filter((link) => link.salon_id === slug).map((link) => link.telegram_user_id) : null;
+}
+
 export async function ownsSlug(telegramId: number, slug: string): Promise<boolean> {
   return (await ownedSlugs(telegramId))?.includes(slug) ?? false;
 }

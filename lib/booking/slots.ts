@@ -34,32 +34,37 @@ function blockOf(minutes: number): SlotBlock {
   return "evening";
 }
 
-/** Every 30-minute step an appointment occupies, start inclusive. */
-function stepsOf(startTime: string, durationMin: number): string[] {
+/** A busy stretch of a day, in minutes from midnight: [start, end). */
+interface Interval {
+  start: number;
+  end: number;
+}
+
+function intervalOf(startTime: string, durationMin: number): Interval {
   const start = toMinutes(startTime);
-  const steps: string[] = [];
-  for (let t = start; t < start + Math.max(durationMin, SLOT_STEP_MIN); t += SLOT_STEP_MIN) {
-    steps.push(toHhMm(t));
-  }
-  return steps;
+  return { start, end: start + Math.max(durationMin, SLOT_STEP_MIN) };
 }
 
 /**
- * Minutes this master is already committed on a given day, taken from the
+ * Stretches this master is already committed on a given day, taken from the
  * shared booking store, so the grid reflects real appointments — including one
  * the customer has just made.
+ *
+ * Kept as minute intervals rather than grid steps: an appointment that starts
+ * off the half-hour grid (11:15, entered by the salon) must still block every
+ * slot it overlaps, and a set of "HH:MM" steps would miss it.
  */
-function occupied(master: Master, isoDate: string, taken: BusySpan[]): Set<string> {
-  const busy = new Set(master.busy[isoDate] ?? []);
+function occupied(master: Master, isoDate: string, taken: BusySpan[]): Interval[] {
+  const busy = (master.busy[isoDate] ?? []).map((time) => intervalOf(time, SLOT_STEP_MIN));
   for (const booking of getBookingsForDate(isoDate)) {
     if (booking.masterId !== master.id) continue;
     if (booking.status === "cancelled") continue;
-    for (const step of stepsOf(booking.time, booking.durationMin)) busy.add(step);
+    busy.push(intervalOf(booking.time, booking.durationMin));
   }
   // Appointments other customers made, as reported by the server.
   for (const span of taken) {
     if (span.masterId !== master.id) continue;
-    for (const step of stepsOf(span.time, span.durationMin)) busy.add(step);
+    busy.push(intervalOf(span.time, span.durationMin));
   }
   return busy;
 }
@@ -77,13 +82,10 @@ export function worksOn(master: Master, isoDate: string): boolean {
 }
 
 /** Can the master start `durationMin` of work at `startMin` and finish in shift? */
-function fits(master: Master, busy: Set<string>, startMin: number, durationMin: number): boolean {
-  const shiftEnd = toMinutes(master.shiftEnd);
-  if (startMin + durationMin > shiftEnd) return false;
-  for (let t = startMin; t < startMin + durationMin; t += SLOT_STEP_MIN) {
-    if (busy.has(toHhMm(t))) return false;
-  }
-  return true;
+function fits(master: Master, busy: Interval[], startMin: number, durationMin: number): boolean {
+  const end = startMin + durationMin;
+  if (startMin < toMinutes(master.shiftStart) || end > toMinutes(master.shiftEnd)) return false;
+  return busy.every((span) => end <= span.start || startMin >= span.end);
 }
 
 export interface BuildSlotsArgs {

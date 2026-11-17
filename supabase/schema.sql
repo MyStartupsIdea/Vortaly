@@ -90,6 +90,27 @@ create unique index if not exists bookings_no_double_booking
   on bookings (master_id, booking_date, booking_time)
   where status <> 'cancelled';
 
+-- Overlap, not only an identical start: two live bookings of one master may
+-- never share a minute. Atomic, so concurrent requests cannot both win.
+create extension if not exists btree_gist;
+
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'bookings_no_overlap') then
+    alter table bookings
+      add constraint bookings_no_overlap
+      exclude using gist (
+        master_id with =,
+        tsrange(
+          booking_date + booking_time,
+          booking_date + booking_time + duration_min * interval '1 minute',
+          '[)'
+        ) with &&
+      )
+      where (status <> 'cancelled');
+  end if;
+end $$;
+
 -- ------------------------------------------------------ salon owners ----
 -- Invite-only owner / manager accounts for each salon.
 --

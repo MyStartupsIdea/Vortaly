@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
+import { notifyNewBooking } from "@/lib/telegram/notify";
 import { TENANT_SUFFIX } from "@/lib/domain/config";
 import {
   getMaster,
@@ -200,6 +201,9 @@ export async function POST(request: Request) {
 
   const time = asWallClockTime(body.time);
   if (!time) return invalid("time");
+  // The Mini App only offers half-hour starts. Anything else did not come from
+  // the slot grid, and is refused rather than squeezed between appointments.
+  if (Number(time.slice(3)) % 30 !== 0) return invalid("time");
 
   const customerName =
     typeof body.customerName === "string" ? body.customerName.trim() : "";
@@ -284,8 +288,8 @@ export async function POST(request: Request) {
   const result = await createBooking(booking);
 
   if (result.persisted) {
-    // TODO: notify the salon's Telegram chat via sendMessage once
-    // TELEGRAM_BOT_TOKEN is set.
+    // Owners hear about it from the bot, after the customer has their answer.
+    after(() => notifyNewBooking(booking));
     return NextResponse.json(result, { status: 201 });
   }
 
