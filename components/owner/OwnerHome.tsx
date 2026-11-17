@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { TELEGRAM_BOT, TelegramLogin } from "@/components/owner/TelegramLogin";
 import { claim, fetchOwner, signIn, signOut, type OwnerView } from "@/lib/api/owner";
 import { useI18n } from "@/lib/i18n/provider";
 import type { MessageKey } from "@/lib/i18n/dictionaries";
@@ -20,14 +21,6 @@ import type { MessageKey } from "@/lib/i18n/dictionaries";
  *  - `?invite=<code>`: after sign-in the invite is claimed and the owner lands
  *    straight in their builder.
  */
-
-const BOT = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME?.trim().replace(/^@/, "") ?? "";
-
-declare global {
-  interface Window {
-    __vortalyTelegramAuth?: (user: unknown) => void;
-  }
-}
 
 type Phase = "loading" | "signed_out" | "signing_in" | "claiming" | "ready";
 
@@ -61,7 +54,6 @@ export function OwnerHome() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [view, setView] = useState<OwnerView | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const widget = useRef<HTMLDivElement>(null);
   const router = useRouter();
 
   /** Signed in: claim a pending invite, or go back where the owner came from. */
@@ -124,25 +116,6 @@ export function OwnerHome() {
     };
   }, [afterSignIn, login]);
 
-  // The widget is a script that draws an iframe where it is inserted.
-  useEffect(() => {
-    if (phase !== "signed_out" || !BOT || !widget.current) return;
-    window.__vortalyTelegramAuth = (user) => void login({ widget: user });
-    const host = widget.current;
-    const script = document.createElement("script");
-    script.async = true;
-    script.src = "https://telegram.org/js/telegram-widget.js?22";
-    script.setAttribute("data-telegram-login", BOT);
-    script.setAttribute("data-size", "large");
-    script.setAttribute("data-radius", "12");
-    script.setAttribute("data-userpic", "false");
-    script.setAttribute("data-onauth", "window.__vortalyTelegramAuth(user)");
-    host.replaceChildren(script);
-    return () => {
-      host.replaceChildren();
-    };
-  }, [login, phase]);
-
   const logout = async () => {
     await signOut();
     setView(null);
@@ -171,8 +144,10 @@ export function OwnerHome() {
             <p className="mt-2 text-[14px] leading-snug text-ink-muted">
               {hasInvite ? t("o.inviteIntro") : t("o.intro")}
             </p>
-            {BOT ? (
-              <div ref={widget} className="mt-6 flex min-h-[48px] justify-center" />
+            {TELEGRAM_BOT ? (
+              <div className="mt-6">
+                <TelegramLogin onAuth={(user) => void login({ widget: user })} />
+              </div>
             ) : (
               <p className="mt-6 text-[13px] text-accent">{t("o.notConfigured")}</p>
             )}
@@ -207,9 +182,17 @@ export function OwnerHome() {
             ) : (
               <p className="mt-3 text-[14px] leading-snug text-ink-muted">{t("o.noSites")}</p>
             )}
-            <Button variant="secondary" size="sm" className="mt-6" onClick={() => void logout()}>
-              {t("o.logout")}
-            </Button>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Link
+                href="/start"
+                className="glaze-brand rounded-card px-4 py-2.5 text-[13px] font-semibold text-brand-ink"
+              >
+                {t("s.newBusiness")}
+              </Link>
+              <Button variant="secondary" size="sm" onClick={() => void logout()}>
+                {t("o.logout")}
+              </Button>
+            </div>
           </>
         )}
 

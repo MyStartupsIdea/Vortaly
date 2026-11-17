@@ -141,6 +141,34 @@ export async function ownsSlug(telegramId: number, slug: string): Promise<boolea
   return (await ownedSlugs(telegramId))?.includes(slug) ?? false;
 }
 
+/**
+ * Links an account to a business directly. Only for a business this account
+ * has just created itself (self-serve start); every other link goes through an
+ * operator's invite.
+ */
+export async function linkOwner(slug: string, telegramId: number): Promise<boolean> {
+  const store = backend();
+  if (store.kind === "none") return false;
+
+  if (store.kind === "db") {
+    const { error } = await store.db
+      .from("owner_links")
+      .upsert({ salon_id: slug, telegram_user_id: telegramId }, { onConflict: "salon_id,telegram_user_id" });
+    if (!error) return true;
+    if (!(isMissingTable(error) && devMode())) {
+      console.error("[owner.store.linkOwner]", error.code ?? "", error.message);
+      return false;
+    }
+  }
+
+  const file = await readData();
+  if (!file) return false;
+  if (!file.links.some((link) => link.salon_id === slug && link.telegram_user_id === telegramId)) {
+    file.links.push({ salon_id: slug, telegram_user_id: telegramId, created_at: new Date().toISOString() });
+  }
+  return writeData(file);
+}
+
 /* ---------------------------------------------------------------- invites --- */
 
 export async function createInvite(slug: string): Promise<{ code: string; expiresAt: string } | null> {

@@ -151,3 +151,37 @@ export async function setOwnerBookingStatus(
     return { ok: false, reason: "error" };
   }
 }
+
+/* --------------------------------------------------------- self-serve start --- */
+
+export type StartFailure =
+  | { reason: "invalid"; field?: "name" | "phone" | "brief" }
+  | { reason: "not_signed_in" | "limit_reached" | "too_fast" | "unavailable" | "error" };
+
+/** Creates the signed-in owner's business and its first AI draft. Slow: the model writes it. */
+export async function startBusiness(input: {
+  name: string;
+  phone: string;
+  brief: string;
+}): Promise<({ ok: true; slug: string }) | ({ ok: false } & StartFailure)> {
+  try {
+    const response = await fetch("/api/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const data = await body(response);
+    if (response.ok && typeof data.slug === "string") return { ok: true, slug: data.slug };
+    if (response.status === 401) return { ok: false, reason: "not_signed_in" };
+    if (response.status === 400) {
+      const field = data.field === "name" || data.field === "phone" || data.field === "brief" ? data.field : undefined;
+      return { ok: false, reason: "invalid", field };
+    }
+    if (response.status === 409) return { ok: false, reason: "limit_reached" };
+    if (response.status === 429) return { ok: false, reason: "too_fast" };
+    if (response.status === 503) return { ok: false, reason: "unavailable" };
+    return { ok: false, reason: "error" };
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+}

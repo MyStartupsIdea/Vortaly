@@ -65,7 +65,7 @@ const TENANT_TABLES: Record<string, string[]> = {
   custom: ["salons", "services", "bookings", "payments"],
 };
 
-const RESERVED_SLUGS = new Set(["admin", "api", "bookings", "builder", "checkout", "chinor", "owner"]);
+const RESERVED_SLUGS = new Set(["admin", "api", "bookings", "builder", "checkout", "chinor", "owner", "start"]);
 
 interface Body {
   name?: string;
