@@ -1,0 +1,28 @@
+// Local dev launcher that keeps the server away from live services.
+// Next loads .env.local (live Supabase keys) automatically; empty strings
+// passed here win over it, whereas unsetting a variable does not.
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const nextBin = path.join(root, "node_modules", "next", "dist", "bin", "next");
+
+const child = spawn(process.execPath, [nextBin, "dev", "--port", "3100"], {
+  cwd: root,
+  stdio: "inherit",
+  env: {
+    ...process.env,
+    NEXT_PUBLIC_SUPABASE_URL: "",
+    NEXT_PUBLIC_SUPABASE_ANON_KEY: "",
+    SUPABASE_SECRET_KEY: "",
+    TELEGRAM_BOT_TOKEN: "",
+    CLICK_SECRET_KEY: "",
+    CLICK_MERCHANT_ID: "",
+    CLICK_SERVICE_ID: "",
+    PAYME_MERCHANT_ID: "",
+  },
+});
+
+for (const sig of ["SIGINT", "SIGTERM"]) process.on(sig, () => child.kill(sig));
+child.on("exit", (code) => process.exit(code ?? 0));

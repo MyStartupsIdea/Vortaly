@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vortaly-local",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [".claude/dev-local.mjs"],
+      "port": 3100
+    }
+  ]
+}
