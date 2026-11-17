@@ -1,6 +1,7 @@
 import { detectKind } from "@/lib/console/brief";
+import { recordFreeUse, resolveAccess } from "@/lib/ai/access";
 import { generateSpec } from "@/lib/builder/generate";
-import { guard, json, readObject, storageFailure } from "@/lib/builder/http";
+import { guard, json, keyRequired, readObject, storageFailure } from "@/lib/builder/http";
 import { cleanPhone } from "@/lib/builder/spec";
 import { loadSite, saveDraft } from "@/lib/builder/store";
 import { findSalonBySlug } from "@/lib/supabase/salons";
@@ -50,10 +51,28 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
   const kind =
     detected !== "custom" ? detected : current.status === "ok" ? current.site.draft.kind : "custom";
 
-  const generated = await generateSpec({ slug: guarded.slug, name, phone, kind, brief });
+  // A spent allowance refuses rather than quietly swapping in a template,
+  // which would wipe a draft the owner has been working on.
+  const access = await resolveAccess(guarded.slug);
+  if (!access) return storageFailure("unavailable");
+  if (access.mode === "key_required") return keyRequired();
+
+  const generated = await generateSpec({
+    slug: guarded.slug,
+    name,
+    phone,
+    kind,
+    brief,
+    ownKey: access.mode === "own" ? access.ownKey : undefined,
+  });
+
+  if (access.mode === "own" && generated.failure === "key_rejected") {
+    return json({ error: "ai_key_rejected" }, 502);
+  }
 
   const saved = await saveDraft(guarded.slug, generated.spec);
   if (!saved.ok) return storageFailure(saved.reason);
+  if (access.mode === "free" && generated.origin === "ai") await recordFreeUse(guarded.slug);
 
   return json({
     spec: saved.site.draft,

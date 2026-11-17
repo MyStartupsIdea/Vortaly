@@ -200,6 +200,21 @@ create table if not exists sites (
 
 alter table sites enable row level security;
 
+-- ------------------------------------------------------ AI allowance --
+-- Free AI actions used on the platform's keys, and the owner's own key
+-- (encrypted, never plain). See lib/ai/access.ts. Server-only, like sites.
+create table if not exists site_ai (
+  id            text primary key references salons(id) on delete cascade,
+  free_used     integer     not null default 0 check (free_used >= 0),
+  provider      text        check (provider in ('gemini', 'groq', 'openrouter')),
+  key_cipher    text,
+  key_hint      text,
+  key_added_at  timestamptz,
+  updated_at    timestamptz not null default now()
+);
+
+alter table site_ai enable row level security;
+
 -- ------------------------------------------------------- row level security --
 -- The catalogue is public; bookings and payments are reachable only through
 -- the server, which uses the secret key and bypasses these policies.

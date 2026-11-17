@@ -38,6 +38,12 @@ environment if the final domain differs.
   `sites`) before using `/builder/<slug>` in production. Without it the builder
   answers `schema_missing` in production; in development it falls back to local
   files under `.vortaly/`, which are not deployed and not shared.
+- Hybrid AI allowance: apply `supabase/migrations/2026-11-17_site_ai.sql` (one
+  table, `site_ai`) and set `VORTALY_KEY_SECRET` server-side. Each site gets
+  `VORTALY_FREE_AI_ACTIONS` (default 5) free AI actions on the platform keys;
+  after that the builder asks the owner for their own Gemini, Groq or
+  OpenRouter key, stored encrypted. Without `VORTALY_KEY_SECRET` production
+  cannot store owners' keys, and AI stops once the free actions are spent.
 - Site builder AI needs at least one working `*_API_KEY_1` (Groq, Gemini,
   OpenRouter or OrcaRouter). With none, or with every provider down, a new
   business still gets a stock template for its trade and the log says so.

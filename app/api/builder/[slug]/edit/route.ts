@@ -1,6 +1,7 @@
+import { recordFreeUse, resolveAccess } from "@/lib/ai/access";
 import { AiError } from "@/lib/ai/llm";
 import { editSpec } from "@/lib/builder/generate";
-import { guard, json, readObject, storageFailure } from "@/lib/builder/http";
+import { guard, json, keyRequired, readObject, storageFailure } from "@/lib/builder/http";
 import { loadSite, saveDraft } from "@/lib/builder/store";
 
 export const runtime = "nodejs";
@@ -30,8 +31,19 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
   if (current.status === "unavailable") return storageFailure("unavailable");
   if (current.status === "missing") return storageFailure("missing");
 
+  const access = await resolveAccess(guarded.slug);
+  if (!access) return storageFailure("unavailable");
+  if (access.mode === "key_required") return keyRequired();
+
   try {
-    const result = await editSpec(current.site.draft, instruction);
+    const result = await editSpec(
+      current.site.draft,
+      instruction,
+      access.mode === "own" ? access.ownKey : undefined,
+    );
+    // The model answered on the platform's key: that is one free action,
+    // whether or not the answer changed anything.
+    if (access.mode === "free") await recordFreeUse(guarded.slug);
 
     if (result.applied === 0) {
       // Nothing changed, so nothing is written. The reply says why.
@@ -46,6 +58,7 @@ export async function POST(request: Request, context: { params: Promise<{ slug: 
     // Closed code only: no provider status, body or message reaches the client.
     const code = error instanceof AiError ? error.code : "unavailable";
     console.warn("[builder/edit] failed:", code);
+    if (code === "key_rejected") return json({ error: "ai_key_rejected" }, 502);
     return json({ error: "ai_unavailable", code }, 503);
   }
 }

@@ -52,7 +52,30 @@ const PROVIDERS: Provider[] = [
   },
 ];
 
-export type AiFailureCode = "not_configured" | "unavailable" | "invalid_response" | "timeout";
+export type AiFailureCode =
+  | "not_configured"
+  | "unavailable"
+  | "invalid_response"
+  | "timeout"
+  /** The owner's own key was refused by its provider (401/403). */
+  | "key_rejected";
+
+/**
+ * Providers an owner can bring their own key for. All three have a free tier
+ * that needs no card, which is the point: "paste a free key and keep going".
+ */
+export const OWN_KEY_PROVIDERS = ["gemini", "groq", "openrouter"] as const;
+export type OwnKeyProvider = (typeof OWN_KEY_PROVIDERS)[number];
+
+export function isOwnKeyProvider(value: unknown): value is OwnKeyProvider {
+  return typeof value === "string" && (OWN_KEY_PROVIDERS as readonly string[]).includes(value);
+}
+
+/** A business owner's key, decrypted for the length of one request. */
+export interface OwnKey {
+  provider: OwnKeyProvider;
+  key: string;
+}
 
 export class AiError extends Error {
   readonly code: AiFailureCode;
@@ -89,6 +112,42 @@ function chain(): Array<Provider & { key: string }> {
   return usable;
 }
 
+/** The owner's key alone: no failover onto the platform's keys. */
+function ownChain(own: OwnKey): Array<Provider & { key: string }> {
+  const provider = PROVIDERS.find((entry) => entry.id === own.provider);
+  return provider ? [{ ...provider, key: own.key }] : [];
+}
+
+/**
+ * Asks the provider whether it accepts this key, with the cheapest
+ * authenticated call it has. Nothing is generated and no quota is spent.
+ */
+export async function checkOwnKey(
+  own: OwnKey,
+): Promise<"ok" | "rejected" | "unreachable"> {
+  const url: Record<OwnKeyProvider, string> = {
+    groq: "https://api.groq.com/openai/v1/models",
+    gemini: "https://generativelanguage.googleapis.com/v1beta/openai/models",
+    openrouter: "https://openrouter.ai/api/v1/key",
+  };
+  try {
+    const response = await fetch(url[own.provider], {
+      headers: { Authorization: `Bearer ${own.key}` },
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
+    });
+    if (response.ok) return "ok";
+    // Gemini answers 400 for a malformed key, the others 401/403.
+    if (response.status === 400 || response.status === 401 || response.status === 403) {
+      return "rejected";
+    }
+    console.warn(`[ai] key check: ${own.provider} answered ${response.status}`);
+    return "unreachable";
+  } catch {
+    return "unreachable";
+  }
+}
+
 export function aiConfigured(): boolean {
   return chain().length > 0;
 }
@@ -122,6 +181,8 @@ export interface ChatJsonRequest {
   /** Per provider attempt, not for the whole chain. */
   timeoutMs: number;
   temperature?: number;
+  /** When set, only this key is used; the platform's keys are not touched. */
+  ownKey?: OwnKey;
 }
 
 export interface ChatJsonResult {
@@ -131,7 +192,7 @@ export interface ChatJsonResult {
 }
 
 export async function chatJson(request: ChatJsonRequest): Promise<ChatJsonResult> {
-  const providers = chain();
+  const providers = request.ownKey ? ownChain(request.ownKey) : chain();
   if (providers.length === 0) throw new AiError("not_configured");
 
   let lastFailure: AiFailureCode = "unavailable";
@@ -161,7 +222,10 @@ export async function chatJson(request: ChatJsonRequest): Promise<ChatJsonResult
       if (!response.ok) {
         // Status only. The body can quote the request and names the account.
         console.warn(`[ai] ${provider.id} answered ${response.status}`);
-        lastFailure = "unavailable";
+        lastFailure =
+          request.ownKey && (response.status === 401 || response.status === 403)
+            ? "key_rejected"
+            : "unavailable";
         continue;
       }
 

@@ -58,3 +58,11 @@ export function storageFailure(
   }
   return json({ error: "storage_unavailable" }, 503);
 }
+
+/**
+ * The free AI allowance is spent and the site has no key of its own.
+ * 402 is deliberate: the request was fine, it is payment (a key) that is missing.
+ */
+export function keyRequired(): NextResponse {
+  return json({ error: "ai_key_required" }, 402);
+}

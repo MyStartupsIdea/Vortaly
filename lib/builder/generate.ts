@@ -1,6 +1,6 @@
 import "server-only";
 
-import { AiError, chatJson, type AiFailureCode } from "@/lib/ai/llm";
+import { AiError, chatJson, type AiFailureCode, type OwnKey } from "@/lib/ai/llm";
 import {
   applyOps,
   sanitizeSpec,
@@ -67,6 +67,8 @@ const EDIT_SYSTEM = [
 
 export interface GenerateInput extends SpecBase {
   brief: string;
+  /** The owner's key. Without it the platform's keys are used. */
+  ownKey?: OwnKey;
 }
 
 export interface GenerateResult {
@@ -103,6 +105,7 @@ export async function generateSpec(input: GenerateInput): Promise<GenerateResult
       maxTokens: 6000,
       timeoutMs: 45_000,
       temperature: 0.6,
+      ownKey: input.ownKey,
     });
 
     // name / phone / slug / kind are stripped: they are the operator's.
@@ -132,7 +135,11 @@ export interface EditResult {
 }
 
 /** Throws `AiError`; the caller decides what the operator sees. */
-export async function editSpec(spec: SiteSpec, instruction: string): Promise<EditResult> {
+export async function editSpec(
+  spec: SiteSpec,
+  instruction: string,
+  ownKey?: OwnKey,
+): Promise<EditResult> {
   const { data, model } = await chatJson({
     system: EDIT_SYSTEM,
     user: [
@@ -142,6 +149,7 @@ export async function editSpec(spec: SiteSpec, instruction: string): Promise<Edi
     maxTokens: 4000,
     timeoutMs: 40_000,
     temperature: 0.3,
+    ownKey,
   });
 
   const result = applyOps(spec, data.ops);

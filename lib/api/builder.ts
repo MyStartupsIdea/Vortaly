@@ -48,10 +48,12 @@ export async function fetchSite(slug: string): Promise<LoadSite> {
   }
 }
 
-export type Failure = "unauthorized" | "ai" | "schema" | "error";
+export type Failure = "unauthorized" | "ai" | "key_required" | "key_rejected" | "schema" | "error";
 
 function failureOf(response: Response, body: Record<string, unknown>): Failure {
   if (response.status === 401) return "unauthorized";
+  if (body.error === "ai_key_required") return "key_required";
+  if (body.error === "ai_key_rejected") return "key_rejected";
   if (body.error === "ai_unavailable") return "ai";
   if (body.error === "schema_missing") return "schema";
   return "error";
@@ -144,4 +146,64 @@ export async function generateSite(
   } catch {
     return { ok: false, reason: "error" };
   }
+}
+
+/* --------------------------------------------------------- AI allowance --- */
+
+export type OwnKeyProvider = "gemini" | "groq" | "openrouter";
+
+export interface AiStatusView {
+  freeLimit: number;
+  freeUsed: number;
+  freeLeft: number;
+  ownKey: { provider: OwnKeyProvider; hint: string; addedAt: string | null } | null;
+  ownKeysEnabled: boolean;
+}
+
+export type KeyFailure =
+  | "unauthorized"
+  | "invalid_key"
+  | "key_rejected"
+  | "provider_unreachable"
+  | "own_keys_disabled"
+  | "error";
+
+export async function fetchAiStatus(slug: string): Promise<AiStatusView | null> {
+  try {
+    const response = await fetch(`/api/builder/${slug}/ai`, { cache: "no-store" });
+    if (!response.ok) return null;
+    return ((await parse(response)).ai as AiStatusView) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function changeKey(
+  slug: string,
+  init: RequestInit,
+): Promise<{ ok: true; ai: AiStatusView } | { ok: false; reason: KeyFailure }> {
+  try {
+    const response = await fetch(`/api/builder/${slug}/ai`, init);
+    const body = await parse(response);
+    if (response.ok) return { ok: true, ai: body.ai as AiStatusView };
+    if (response.status === 401) return { ok: false, reason: "unauthorized" };
+    const known: KeyFailure[] = ["invalid_key", "key_rejected", "provider_unreachable", "own_keys_disabled"];
+    const reason = known.find((code) => code === body.error);
+    return { ok: false, reason: reason ?? (body.error === "invalid_provider" ? "invalid_key" : "error") };
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+}
+
+/** The key goes to the server once and is never sent back. */
+export function saveOwnKey(slug: string, provider: OwnKeyProvider, key: string) {
+  return changeKey(slug, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ provider, key }),
+  });
+}
+
+export function removeOwnKey(slug: string) {
+  return changeKey(slug, { method: "DELETE" });
 }

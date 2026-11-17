@@ -2,15 +2,18 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { AiKeyPanel } from "@/components/builder/AiKeyPanel";
 import { ContentEditor } from "@/components/builder/ContentEditor";
 import { TenantSite } from "@/components/tma/TenantSite";
 import { Button } from "@/components/ui/Button";
 import {
   aiEdit,
+  fetchAiStatus,
   fetchSite,
   generateSite,
   publishSite,
   saveSpec,
+  type AiStatusView,
   type LoadSite,
   type StaffWarning,
 } from "@/lib/api/builder";
@@ -69,13 +72,20 @@ export function BuilderApp({ slug }: { slug: string }) {
   const [history, setHistory] = useState<SiteSpec[]>([]);
   const [publishing, setPublishing] = useState(false);
   const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
+  const [ai, setAi] = useState<AiStatusView | null>(null);
+  const [keyOpen, setKeyOpen] = useState(false);
 
   const pending = useRef<SiteSpec | null>(null);
   const timer = useRef<number | null>(null);
   const chatEnd = useRef<HTMLDivElement>(null);
 
+  const refreshAi = useCallback(async () => {
+    setAi(await fetchAiStatus(slug));
+  }, [slug]);
+
   const reload = useCallback(async () => {
     setLoad({ status: "loading" });
+    void refreshAi();
     const result = await fetchSite(slug);
     setLoad(result);
     if (result.status === "ok") {
@@ -85,7 +95,7 @@ export function BuilderApp({ slug }: { slug: string }) {
       setStorage(result.site.storage);
       setSaveStatus("saved");
     }
-  }, [slug]);
+  }, [refreshAi, slug]);
 
   useEffect(() => {
     void reload();
@@ -169,12 +179,25 @@ export function BuilderApp({ slug }: { slug: string }) {
       const before = spec;
       const result = await aiEdit(slug, instruction);
       setThinking(false);
+      void refreshAi();
 
       if (!result.ok) {
         if (result.reason === "unauthorized") setLoad({ status: "unauthorized" });
+        // No allowance and no key, or a key its provider refused: ask for one.
+        if (result.reason === "key_required" || result.reason === "key_rejected") setKeyOpen(true);
         setMessages((list) => [
           ...list,
-          { from: "system", text: result.reason === "ai" ? t("b.aiDown") : t("b.requestFailed") },
+          {
+            from: "system",
+            text:
+              result.reason === "key_required"
+                ? t("ai.keyRequired")
+                : result.reason === "key_rejected"
+                  ? t("ai.keyRejectedRun")
+                  : result.reason === "ai"
+                    ? t("b.aiDown")
+                    : t("b.requestFailed"),
+          },
         ]);
         return;
       }
@@ -193,7 +216,7 @@ export function BuilderApp({ slug }: { slug: string }) {
         },
       ]);
     },
-    [flush, slug, spec, t, thinking, tr],
+    [flush, refreshAi, slug, spec, t, thinking, tr],
   );
 
   const undo = useCallback(() => {
@@ -250,7 +273,16 @@ export function BuilderApp({ slug }: { slug: string }) {
   }
 
   if (load.status === "no_site") {
-    return <Generate slug={slug} name={load.tenant.name} onDone={() => void reload()} />;
+    return (
+      <Generate
+        slug={slug}
+        name={load.tenant.name}
+        ai={ai}
+        onAiChange={setAi}
+        onDone={() => void reload()}
+        onUnauthorized={() => setLoad({ status: "unauthorized" })}
+      />
+    );
   }
 
   if (load.status === "not_found" || load.status === "error" || !spec) {
@@ -456,6 +488,15 @@ export function BuilderApp({ slug }: { slug: string }) {
                 <div ref={chatEnd} />
               </div>
 
+              <AiKeyPanel
+                slug={slug}
+                status={ai}
+                open={keyOpen}
+                onOpenChange={setKeyOpen}
+                onChange={setAi}
+                onUnauthorized={() => setLoad({ status: "unauthorized" })}
+              />
+
               <form
                 onSubmit={(event: FormEvent) => {
                   event.preventDefault();
@@ -578,11 +619,26 @@ function Unlock({ onUnlocked }: { onUnlocked: () => void }) {
 }
 
 /** A tenant with no site yet: describe the business, get a first draft. */
-function Generate({ slug, name, onDone }: { slug: string; name: string; onDone: () => void }) {
+function Generate({
+  slug,
+  name,
+  ai,
+  onAiChange,
+  onDone,
+  onUnauthorized,
+}: {
+  slug: string;
+  name: string;
+  ai: AiStatusView | null;
+  onAiChange: (status: AiStatusView) => void;
+  onDone: () => void;
+  onUnauthorized: () => void;
+}) {
   const { t } = useI18n();
   const [brief, setBrief] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [keyOpen, setKeyOpen] = useState(false);
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
@@ -595,7 +651,17 @@ function Generate({ slug, name, onDone }: { slug: string; name: string; onDone: 
       onDone();
       return;
     }
-    setFailure(result.reason === "schema" ? t("b.schemaMissing") : t("b.requestFailed"));
+    if (result.reason === "unauthorized") return onUnauthorized();
+    if (result.reason === "key_required" || result.reason === "key_rejected") setKeyOpen(true);
+    setFailure(
+      result.reason === "schema"
+        ? t("b.schemaMissing")
+        : result.reason === "key_required"
+          ? t("ai.keyRequired")
+          : result.reason === "key_rejected"
+            ? t("ai.keyRejectedRun")
+            : t("b.requestFailed"),
+    );
   };
 
   return (
@@ -621,10 +687,21 @@ function Generate({ slug, name, onDone }: { slug: string; name: string; onDone: 
             {failure}
           </p>
         )}
-        <Link href="/" className="block text-center text-[12px] font-semibold text-ink-muted">
-          ← {t("b.back")}
-        </Link>
       </form>
+      {/* Outside the brief form: the key panel is a form of its own. */}
+      <div className="mt-3 overflow-hidden rounded-card border border-hairline bg-surface text-left">
+        <AiKeyPanel
+          slug={slug}
+          status={ai}
+          open={keyOpen}
+          onOpenChange={setKeyOpen}
+          onChange={onAiChange}
+          onUnauthorized={onUnauthorized}
+        />
+      </div>
+      <Link href="/" className="mt-3 block text-center text-[12px] font-semibold text-ink-muted">
+        ← {t("b.back")}
+      </Link>
     </Centered>
   );
 }

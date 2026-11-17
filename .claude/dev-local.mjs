@@ -21,6 +21,8 @@ const child = spawn(process.execPath, [nextBin, "dev", "--port", "3100"], {
     CLICK_MERCHANT_ID: "",
     CLICK_SERVICE_ID: "",
     PAYME_MERCHANT_ID: "",
+    // A local-only admin secret, so the real one is never needed for testing.
+    PLATFORM_ADMIN_SECRET: "vortaly-local-dev",
   },
 });
 

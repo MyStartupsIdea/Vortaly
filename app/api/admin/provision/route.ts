@@ -6,6 +6,7 @@ import {
   type FindSalonResult,
 } from "@/lib/supabase/salons";
 import type { LogLevel, ProjectKind, StageId } from "@/lib/data/projects";
+import { recordFreeUse } from "@/lib/ai/access";
 import { generateSpec } from "@/lib/builder/generate";
 import { cleanPhone } from "@/lib/builder/spec";
 import { fileSiteExists, localOnlyMode, saveDraft } from "@/lib/builder/store";
@@ -363,6 +364,8 @@ async function buildSite(
 
   if (generated.origin === "ai") {
     step("ui", "ok", `site written by ${generated.model}`);
+    // The first build is the first free AI action of this site.
+    await recordFreeUse(input.slug);
   } else {
     step(
       "ui",
