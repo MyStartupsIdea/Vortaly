@@ -94,3 +94,60 @@ export async function createOwnerInvite(
     return { ok: false };
   }
 }
+
+/* ------------------------------------------------------------- bookings --- */
+
+export type OwnerBookingStatus = "draft" | "pending" | "confirmed" | "paid" | "cancelled";
+
+/** One row of /api/owner/bookings, as the database names its columns. */
+export interface OwnerBooking {
+  id: string;
+  booking_date: string;
+  booking_time: string;
+  status: OwnerBookingStatus;
+  total_sum: number;
+  customer_name: string;
+  customer_phone: string;
+  service_ids: string[];
+  master_id: string;
+  duration_min: number;
+}
+
+export type BookingsFailure = "not_signed_in" | "forbidden" | "unavailable" | "error";
+
+export async function fetchOwnerBookings(
+  slug: string,
+): Promise<{ ok: true; bookings: OwnerBooking[] } | { ok: false; reason: BookingsFailure }> {
+  try {
+    const response = await fetch(`/api/owner/bookings?salonId=${encodeURIComponent(slug)}`, { cache: "no-store" });
+    const data = await body(response);
+    if (response.ok) return { ok: true, bookings: (data.bookings as OwnerBooking[]) ?? [] };
+    if (response.status === 401) return { ok: false, reason: "not_signed_in" };
+    if (response.status === 403) return { ok: false, reason: "forbidden" };
+    if (response.status === 503) return { ok: false, reason: "unavailable" };
+    return { ok: false, reason: "error" };
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+}
+
+export async function setOwnerBookingStatus(
+  slug: string,
+  id: string,
+  status: OwnerBookingStatus,
+): Promise<{ ok: true } | { ok: false; reason: "conflict" | "error" }> {
+  try {
+    const response = await fetch(
+      `/api/owner/bookings/${encodeURIComponent(id)}/status?salonId=${encodeURIComponent(slug)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      },
+    );
+    if (response.ok) return { ok: true };
+    return { ok: false, reason: response.status === 409 ? "conflict" : "error" };
+  } catch {
+    return { ok: false, reason: "error" };
+  }
+}

@@ -183,17 +183,22 @@ export function OwnerHome() {
             {view && view.sites.length > 0 ? (
               <ul className="mt-5 space-y-2">
                 {view.sites.map((site) => (
-                  <li key={site.slug}>
-                    <Link
-                      href={`/builder/${site.slug}`}
-                      className="flex items-center justify-between rounded-card border border-hairline bg-surface-raised px-4 py-3 hover:border-brand"
-                    >
-                      <span className="min-w-0">
-                        <span className="block truncate text-[15px] font-semibold">{site.name}</span>
-                        <span className="block truncate font-mono text-[11px] text-ink-muted">/{site.slug}</span>
-                      </span>
-                      <span className="flex-none text-[13px] font-semibold text-brand">{t("o.open")} →</span>
-                    </Link>
+                  <li
+                    key={site.slug}
+                    className="flex items-center justify-between gap-3 rounded-card border border-hairline bg-surface-raised px-4 py-3"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate text-[15px] font-semibold">{site.name}</span>
+                      <span className="block truncate font-mono text-[11px] text-ink-muted">/{site.slug}</span>
+                    </span>
+                    <span className="flex flex-none gap-3 text-[13px] font-semibold">
+                      <Link href={`/owner/bookings?salon=${site.slug}`} className="text-ink hover:text-brand">
+                        {t("ob.open")}
+                      </Link>
+                      <Link href={`/builder/${site.slug}`} className="text-brand">
+                        {t("o.open")} →
+                      </Link>
+                    </span>
                   </li>
                 ))}
               </ul>

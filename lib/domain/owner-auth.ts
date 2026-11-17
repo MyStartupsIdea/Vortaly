@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { readOwnerSession } from "@/lib/owner/session";
+import { ownedSlugs } from "@/lib/owner/store";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import type { BookingStatus } from "@/lib/types";
 import {
@@ -117,7 +119,14 @@ function isAuthServiceFailure(error: unknown): boolean {
 }
 
 /**
- * Read an owner's Supabase session and resolve the salon they may act on.
+ * Read an owner's session and resolve the salon they may act on.
+ *
+ * Two kinds of session are accepted:
+ *  - the Telegram owner session (lib/owner/session.ts), the one owners get
+ *    from /owner; its businesses come from `owner_links`;
+ *  - a Supabase Auth JWT linked through `salon_owners`, as before.
+ * A Telegram session is checked first. Either way the tenant comes from the
+ * stored link, never from the request.
  *
  * This helper does not create sessions, sign users in, or send emails. Session
  * issuance belongs in a separate auth surface (email/phone magic link, OAuth,
@@ -132,6 +141,25 @@ export async function ownerAuth(
   request: Request,
   requiredSalonId?: string,
 ): Promise<OwnerAuth> {
+  const telegramOwner = readOwnerSession(request);
+  if (telegramOwner) {
+    const slugs = await ownedSlugs(telegramOwner.telegramId);
+    if (slugs === null) return { ok: false, reason: "auth_unavailable" };
+    if (slugs.length > 0) {
+      const uid = `telegram:${telegramOwner.telegramId}`;
+      const wanted = requiredSalonId?.trim();
+      if (wanted) {
+        return slugs.includes(wanted)
+          ? { ok: true, uid, salonId: wanted, role: "owner" }
+          : { ok: false, reason: "not_linked_to_salon" };
+      }
+      if (slugs.length > 1) return { ok: false, reason: "ambiguous_salon" };
+      return { ok: true, uid, salonId: slugs[0], role: "owner" };
+    }
+    // Signed in with Telegram but linked to nothing: fall through, in case the
+    // request also carries a Supabase session.
+  }
+
   const db = getSupabaseServer();
   if (!db) {
     // No Supabase keys in the environment. That is a deployment fault, not a

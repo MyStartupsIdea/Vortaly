@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { issueAdminSession, ADMIN_SESSION_COOKIE } from "@/lib/domain/admin-auth";
 import { guard } from "@/lib/builder/http";
+import { ownerAuth, ownerListBookings } from "@/lib/domain/owner-auth";
 import { issueOwnerSession, OWNER_SESSION_COOKIE, readOwnerSession } from "@/lib/owner/session";
 import { claimInvite, createInvite, ownedSlugs, ownersOf } from "@/lib/owner/store";
 import { requestWithCookie } from "./helpers";
@@ -81,5 +82,38 @@ describe("builder gate", () => {
 
     const badSlug = await guard(new Request("http://x/"), params("../etc"));
     expect("response" in badSlug && badSlug.response.status).toBe(400);
+  });
+});
+
+describe("owner bookings access with a Telegram session", () => {
+  it("resolves the business from the owner's own links", async () => {
+    const invite = await createInvite("charlie");
+    await claimInvite(invite!.code, 444);
+    const request = requestWithCookie("http://x/api/owner/bookings", ownerCookie(444));
+
+    expect(await ownerAuth(request)).toEqual({ ok: true, uid: "telegram:444", salonId: "charlie", role: "owner" });
+    expect(await ownerAuth(request, "charlie")).toMatchObject({ ok: true, salonId: "charlie" });
+    expect(await ownerAuth(request, "alpha")).toEqual({ ok: false, reason: "not_linked_to_salon" });
+  });
+
+  it("asks which business when the owner has several", async () => {
+    for (const slug of ["delta", "echo"]) {
+      const invite = await createInvite(slug);
+      await claimInvite(invite!.code, 555);
+    }
+    const request = requestWithCookie("http://x/", ownerCookie(555));
+    expect(await ownerAuth(request)).toEqual({ ok: false, reason: "ambiguous_salon" });
+    expect(await ownerAuth(request, "echo")).toMatchObject({ ok: true, salonId: "echo" });
+  });
+
+  it("refuses another business's bookings before touching the database", async () => {
+    const request = requestWithCookie("http://x/api/owner/bookings?salonId=alpha", ownerCookie(444));
+    const response = await ownerListBookings(request);
+    expect(response.status).toBe(403);
+  });
+
+  it("a signed-in owner linked to nothing gets no business", async () => {
+    const result = await ownerAuth(requestWithCookie("http://x/", ownerCookie(999)));
+    expect(result.ok).toBe(false);
   });
 });
