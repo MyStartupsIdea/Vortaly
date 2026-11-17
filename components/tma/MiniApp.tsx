@@ -632,7 +632,7 @@ export function MiniApp({ preview = false }: { preview?: boolean } = {}) {
       <ActionBar>
         <div className="flex items-center gap-3">
         {done[1] && (
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-none">
             <p className="font-display text-[18px] leading-tight font-semibold tabular-nums">
               {total.sum > 0 ? formatSum(total.sum, locale) : t("site.free")}
             </p>
@@ -644,7 +644,7 @@ export function MiniApp({ preview = false }: { preview?: boolean } = {}) {
 
         <Button
           block={!done[1]}
-          className={done[1] ? "max-w-[60%] flex-none" : undefined}
+          className={done[1] ? "min-w-0 flex-1 px-4" : undefined}
           disabled={sending}
           onClick={() => {
             if (ready) {

@@ -44,54 +44,47 @@ export function OriginBadge({ origin }: { origin: BookingOrigin }) {
   );
 }
 
-/**
- * Status pill matching the Mini App vocabulary.
- *
- * The labels are inlined rather than read from the dictionaries, as they were
- * before this was extracted. Folding them into lib/i18n is worth doing, but it
- * is a localisation change rather than a structural one, so it is left for the
- * pass that also moves the admin shell's own hardcoded nav labels.
- */
-export function StatusBadge({
-  status,
-  locale,
-}: {
-  status: BookingStatus;
-  locale: Locale;
-}) {
-  const map = {
-    ru: {
-      draft: "Черновик",
-      pending: "Ждёт подтверждения",
-      confirmed: "Подтверждена",
-      paid: "Оплачена",
-      cancelled: "Отменена",
-    },
-    uz: {
-      draft: "Qoralama",
-      pending: "Tasdiqlanishi kutilmoqda",
-      confirmed: "Tasdiqlangan",
-      paid: "Toʻlangan",
-      cancelled: "Bekor qilingan",
-    },
-  } as const;
+const STATUS_LABEL = {
+  ru: {
+    draft: "Черновик",
+    pending: "Ждёт подтверждения",
+    confirmed: "Подтверждена",
+    paid: "Оплачена",
+    cancelled: "Отменена",
+  },
+  uz: {
+    draft: "Qoralama",
+    pending: "Tasdiqlanishi kutilmoqda",
+    confirmed: "Tasdiqlangan",
+    paid: "Toʻlangan",
+    cancelled: "Bekor qilingan",
+  },
+} as const;
 
-  const colorMap = {
-    draft: "bg-ink-muted/10 text-ink-muted",
-    pending: "bg-saffron/12 text-saffron",
-    confirmed: "bg-lapis/10 text-lapis",
-    paid: "bg-ink/8 text-ink",
-    cancelled: "bg-ink-muted/10 text-ink-muted line-through decoration-ink-muted/40",
-  };
+export function statusLabel(status: BookingStatus, locale: Locale): string {
+  return STATUS_LABEL[locale][status];
+}
 
+const STATUS_STYLE: Record<BookingStatus, { pill: string; dot: string }> = {
+  draft: { pill: "bg-surface-sunken text-ink-muted", dot: "bg-ink-muted" },
+  pending: { pill: "bg-saffron/10 text-saffron ring-saffron/25", dot: "bg-saffron" },
+  confirmed: { pill: "bg-brand-tint text-brand ring-brand/20", dot: "bg-brand" },
+  paid: { pill: "bg-surface-sunken text-ink ring-hairline", dot: "bg-ink" },
+  cancelled: { pill: "bg-surface-sunken text-ink-muted line-through decoration-ink-muted/40", dot: "bg-ink-muted" },
+};
+
+/** Status pill with a dot, after the Stitch reference. */
+export function StatusBadge({ status, locale }: { status: BookingStatus; locale: Locale }) {
+  const style = STATUS_STYLE[status];
   return (
     <span
       className={cx(
-        "inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap",
-        colorMap[status],
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[12px] font-semibold whitespace-nowrap ring-1 ring-transparent ring-inset",
+        style.pill,
       )}
     >
-      {map[locale][status]}
+      <span aria-hidden className={cx("size-1.5 rounded-full", style.dot)} />
+      {statusLabel(status, locale)}
     </span>
   );
 }

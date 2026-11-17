@@ -106,7 +106,7 @@ export function Calendar() {
       </div>
 
       {!monthOpen && (
-        <div className="rail mt-3 gap-2 px-5">
+        <div className="rail mt-3 scroll-px-5 gap-2 px-5">
           {days.map((date) => {
             const iso = toIsoDate(date);
             const open = salonOpen(iso, draft.masterId, draft.serviceIds);

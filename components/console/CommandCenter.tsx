@@ -25,14 +25,6 @@ const TPL_PROMPT = {
   carwash: "tpl.carwashPrompt",
 } as const;
 
-/* Three glazed tiles in each trade's colours — enough to tell the cards apart
-   without introducing an icon set. */
-const TPL_TILES: Record<keyof typeof TPL_LABEL, string[]> = {
-  salon: ["bg-turquoise", "bg-pomegranate", "bg-saffron"],
-  cafe: ["bg-saffron", "bg-petrol-soft", "bg-pomegranate"],
-  carwash: ["bg-turquoise-deep", "bg-turquoise", "bg-saffron"],
-};
-
 /** 901234567 -> "90 123 45 67" */
 function groupPhone(digits: string): string {
   return [digits.slice(0, 2), digits.slice(2, 5), digits.slice(5, 7), digits.slice(7, 9)]
@@ -366,7 +358,7 @@ export function CommandCenter({ onCreate, busy, created, error, onReset }: Props
             {created.builder && (
               <Link
                 href={created.builder}
-                className="glaze-brand rounded-full px-6 py-3.5 text-[15px] font-semibold text-brand-ink"
+                className="glaze-brand rounded-tile px-6 py-3.5 text-[15px] font-semibold text-brand-ink hover:bg-brand-strong"
               >
                 {t("b.open")}
               </Link>
@@ -459,16 +451,20 @@ export function CommandCenter({ onCreate, busy, created, error, onReset }: Props
                 className={cx(
                   "rounded-card border p-4 text-left transition-colors duration-150 disabled:opacity-60",
                   active
-                    ? "border-brand bg-brand/8"
-                    : "border-hairline bg-surface-raised hover:border-ink-muted/40",
+                    ? "border-brand bg-brand-tint"
+                    : "border-hairline bg-surface-raised hover:border-hairline-strong",
                 )}
               >
-                <span aria-hidden className="flex gap-1">
-                  {TPL_TILES[item.kind].map((tint, i) => (
-                    <span key={i} className={cx("size-3 rounded-tile", tint)} />
-                  ))}
+                <span
+                  aria-hidden
+                  className={cx(
+                    "grid size-9 place-items-center rounded-tile font-display text-[15px] font-semibold",
+                    active ? "glaze-brand text-brand-ink" : "bg-brand-tint text-brand",
+                  )}
+                >
+                  {t(TPL_LABEL[item.kind]).charAt(0)}
                 </span>
-                <span className="mt-3 block font-display text-[14px] font-bold tracking-[-0.01em]">
+                <span className="mt-3 block font-display text-[14px] font-semibold tracking-[-0.01em]">
                   {t(TPL_LABEL[item.kind])}
                 </span>
                 <span className="mt-1 block text-[12px] leading-snug text-ink-muted">

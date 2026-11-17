@@ -42,8 +42,9 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // telegram-web-app.js sets viewport variables on <html> before React hydrates.
   return (
-    <html lang="ru" className={`${onest.variable} ${manrope.variable}`}>
+    <html lang="ru" className={`${onest.variable} ${manrope.variable}`} suppressHydrationWarning>
       <head>
         {/* Must run before hydration so window.Telegram exists on first render. */}
         <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />

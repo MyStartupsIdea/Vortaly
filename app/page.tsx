@@ -5,6 +5,7 @@ import { AgentLog, type Run } from "@/components/console/AgentLog";
 import { CommandCenter, type CreateRequest } from "@/components/console/CommandCenter";
 import { ProjectPanel, type SessionCard } from "@/components/console/ProjectPanel";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { VortalyMark } from "@/components/ui/VortalyMark";
 import {
   adminAuthState,
   listSalons,
@@ -196,13 +197,14 @@ export default function ConsolePage() {
   const seconds = run?.finishedMs !== null && run ? (run.finishedMs / 1000).toFixed(1) : "0";
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface-sunken lg:h-dvh lg:overflow-hidden">
-      <header className="flex flex-none items-center justify-between gap-4 border-b border-hairline bg-surface px-4 py-3 lg:px-6">
-        <div className="flex items-baseline gap-3">
-          <span className="font-display text-[19px] leading-none font-bold tracking-[-0.03em]">
-            Vortaly Console
+    <div className="flex min-h-screen flex-col bg-surface lg:h-dvh lg:overflow-hidden">
+      <header className="flex h-16 flex-none items-center justify-between gap-4 border-b border-hairline bg-surface-raised px-4 lg:px-6">
+        <div className="flex items-center gap-2.5">
+          <VortalyMark size={32} />
+          <span className="leading-none">
+            <span className="block font-display text-[17px] font-semibold tracking-[-0.03em]">Vortaly Console</span>
+            <span className="mt-0.5 block text-[11px] text-ink-muted">{ROOT_DOMAIN}</span>
           </span>
-          <span className="font-mono text-[11px] text-ink-muted">{ROOT_DOMAIN}</span>
         </div>
         <LanguageSwitcher />
       </header>

@@ -3,9 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { AppShell } from "@/components/shell/AppShell";
 import { TELEGRAM_BOT, TelegramLogin } from "@/components/owner/TelegramLogin";
-import { VortalyLogo } from "@/components/ui/VortalyMark";
 import { cx } from "@/lib/cx";
 import { claim, fetchOwner, signIn, signOut, type OwnerView } from "@/lib/api/owner";
 import { useI18n } from "@/lib/i18n/provider";
@@ -125,119 +124,178 @@ export function OwnerHome() {
 
   const hasInvite = phase !== "loading" && typeof window !== "undefined" && Boolean(param("invite"));
 
-  return (
-    <div className="min-h-screen bg-surface px-4 pt-5 pb-12 sm:px-8">
-      <header className="mx-auto flex w-full max-w-[640px] items-center justify-between gap-3">
-        <Link href="/start" aria-label="Vortaly">
-          <VortalyLogo />
-        </Link>
-        <LanguageSwitcher />
-      </header>
+  const name = view?.owner?.name ?? null;
+  const firstSlug = view?.sites[0]?.slug ?? null;
 
-      <main className="mx-auto mt-10 w-full max-w-[640px] sm:mt-14">
-        {phase === "loading" || phase === "signing_in" || phase === "claiming" ? (
-          <p role="status" className="py-16 text-center text-[14px] text-ink-muted motion-safe:animate-pulse">
-            {phase === "claiming" ? t("o.claiming") : t("o.signingIn")}
-          </p>
-        ) : phase === "signed_out" ? (
-          <section className="max-w-[440px]">
-            <h1 className="text-[30px] leading-[1.1] font-semibold tracking-[-0.03em]">{t("o.title")}</h1>
-            <p className="mt-3 text-[15px] leading-[1.5] text-ink-muted">
-              {hasInvite ? t("o.inviteIntro") : t("o.intro")}
-            </p>
-            {TELEGRAM_BOT ? (
-              <div className="mt-7 flex justify-start">
-                <TelegramLogin onAuth={(user) => void login({ widget: user })} />
-              </div>
-            ) : (
-              <p className="mt-7 text-[13px] text-accent">{t("o.notConfigured")}</p>
-            )}
-            <p className="mt-8 text-[14px] text-ink-muted">
-              {t("o.noAccountYet")}{" "}
-              <Link href="/start" className="font-semibold text-ink underline decoration-hairline underline-offset-4 hover:decoration-ink">
-                {t("s.newBusiness")}
-              </Link>
-            </p>
-          </section>
-        ) : (
-          <>
-            <div className="flex flex-wrap items-end justify-between gap-4">
-              <h1 className="text-[30px] leading-[1.1] font-semibold tracking-[-0.03em]">
-                {view?.owner?.name ? t("o.hello", { name: view.owner.name }) : t("o.helloNoName")}
-              </h1>
-              <Link
-                href="/start"
-                className="glaze-brand rounded-card px-4 py-2.5 text-[14px] font-semibold text-brand-ink hover:opacity-90"
-              >
-                + {t("s.newBusiness")}
-              </Link>
-            </div>
-
-            <h2 className="mt-10 text-[13px] font-medium text-ink-muted">{t("o.myBusinesses")}</h2>
-            {view && view.sites.length > 0 ? (
-              <ul className="mt-3 divide-y divide-hairline overflow-hidden rounded-card border border-hairline bg-surface-raised">
-                {view.sites.map((site) => (
-                  <li key={site.slug} className="px-4 py-4 sm:px-5">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <span className="min-w-0 truncate text-[16px] font-semibold">{site.name}</span>
-                      <span
-                        className={cx(
-                          "flex-none text-[12px] font-medium",
-                          site.published ? "text-lapis" : "text-ink-muted",
-                        )}
-                      >
-                        {site.published ? t("b.live") : t("b.neverPublished")}
-                      </span>
-                    </div>
-                    <p className="mt-0.5 truncate text-[12px] text-ink-muted tabular-nums">/{site.slug}</p>
-                    <div className="mt-3 flex flex-wrap gap-2 text-[13px] font-semibold">
-                      <Link
-                        href={`/builder/${site.slug}`}
-                        className="rounded-tile bg-ink px-3 py-1.5 text-surface hover:opacity-90"
-                      >
-                        {t("o.open")}
-                      </Link>
-                      <Link
-                        href={`/owner/bookings?salon=${site.slug}`}
-                        className="rounded-tile border border-hairline px-3 py-1.5 hover:border-ink/30"
-                      >
-                        {t("ob.open")}
-                      </Link>
-                      {site.published && (
-                        <Link
-                          href={`/${site.slug}`}
-                          target="_blank"
-                          className="rounded-tile border border-hairline px-3 py-1.5 hover:border-ink/30"
-                        >
-                          {t("o.site")} ↗
-                        </Link>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-3 rounded-card border border-dashed border-hairline px-5 py-8 text-[14px] leading-snug text-ink-muted">
-                {t("o.noSites")}
+  if (phase !== "ready") {
+    return (
+      <AppShell sidebar={false}>
+        <div className="mx-auto max-w-[460px] pt-6 sm:pt-12">
+          {phase === "signed_out" ? (
+            <section className="glaze rounded-sheet p-6 sm:p-8">
+              <h1 className="text-[28px] leading-[1.15] font-semibold tracking-[-0.03em]">{t("o.title")}</h1>
+              <p className="mt-3 text-[15px] leading-[1.55] text-ink-muted">
+                {hasInvite ? t("o.inviteIntro") : t("o.intro")}
               </p>
-            )}
+              {TELEGRAM_BOT ? (
+                <div className="mt-7">
+                  <TelegramLogin onAuth={(user) => void login({ widget: user })} />
+                </div>
+              ) : (
+                <p className="mt-7 text-[13px] text-accent">{t("o.notConfigured")}</p>
+              )}
+              <p className="mt-8 border-t border-hairline pt-5 text-[14px] text-ink-muted">
+                {t("o.noAccountYet")}{" "}
+                <Link href="/start" className="font-semibold text-brand hover:underline">
+                  {t("s.newBusiness")} →
+                </Link>
+              </p>
+            </section>
+          ) : (
+            <p role="status" className="py-16 text-center text-[14px] text-ink-muted motion-safe:animate-pulse">
+              {phase === "claiming" ? t("o.claiming") : t("o.signingIn")}
+            </p>
+          )}
+          {error && (
+            <p role="status" className="mt-4 text-[14px] leading-snug font-medium text-accent">
+              {error}
+            </p>
+          )}
+        </div>
+      </AppShell>
+    );
+  }
 
-            <button
-              type="button"
-              onClick={() => void logout()}
-              className="mt-10 text-[13px] font-medium text-ink-muted hover:text-ink"
+  return (
+    <AppShell
+      active="businesses"
+      slug={firstSlug}
+      ownerName={name}
+      footer={
+        <button
+          type="button"
+          onClick={() => void logout()}
+          className="w-full rounded-tile px-3 py-2.5 text-left text-[14px] font-medium text-ink-muted hover:bg-surface-sunken hover:text-ink"
+        >
+          {t("o.logout")}
+        </button>
+      }
+    >
+      <section className="glaze flex flex-wrap items-center gap-5 rounded-sheet p-6">
+        <span
+          aria-hidden
+          className="grid size-16 flex-none place-items-center rounded-full bg-brand-tint font-display text-[26px] font-semibold text-brand"
+        >
+          {name?.trim().charAt(0).toUpperCase() || "V"}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-[26px] leading-tight font-semibold tracking-[-0.03em] sm:text-[30px]">
+            {name ? t("o.hello", { name }) : t("o.helloNoName")}
+          </h1>
+          <p className="mt-1 text-[14px] text-ink-muted">{t("o.helloSub")}</p>
+        </div>
+        <Link
+          href="/start"
+          className="glaze-brand inline-flex items-center gap-2 rounded-tile px-5 py-3 text-[15px] font-semibold text-brand-ink hover:bg-brand-strong"
+        >
+          <span aria-hidden className="text-[18px] leading-none">+</span>
+          {t("s.newBusiness")}
+        </Link>
+      </section>
+
+      <section className="glaze mt-6 rounded-sheet p-5 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-[20px] font-semibold tracking-[-0.02em]">{t("o.myBusinesses")}</h2>
+            <p className="mt-0.5 text-[13px] text-ink-muted">{t("o.businessesSub")}</p>
+          </div>
+        </div>
+
+        {view && view.sites.length > 0 ? (
+          <ul className="mt-5 space-y-3">
+            {view.sites.map((site) => (
+              <li
+                key={site.slug}
+                className="flex flex-wrap items-center gap-4 rounded-card border border-hairline bg-surface p-4"
+              >
+                <span
+                  aria-hidden
+                  className="glaze-brand grid size-12 flex-none place-items-center rounded-card font-display text-[20px] font-semibold text-brand-ink"
+                >
+                  {site.name.trim().charAt(0).toUpperCase()}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="flex flex-wrap items-center gap-2">
+                    <span className="truncate text-[17px] font-semibold">{site.name}</span>
+                    <span
+                      className={cx(
+                        "rounded-full px-2.5 py-0.5 text-[12px] font-semibold",
+                        site.published ? "bg-brand-tint text-brand" : "bg-surface-sunken text-ink-muted",
+                      )}
+                    >
+                      {site.published ? t("b.live") : t("b.neverPublished")}
+                    </span>
+                  </p>
+                  <p className="mt-0.5 truncate text-[13px] text-ink-muted tabular-nums">/{site.slug}</p>
+                </div>
+                <div className="flex flex-wrap gap-2 text-[14px] font-semibold">
+                  {site.published && (
+                    <Link
+                      href={`/${site.slug}`}
+                      target="_blank"
+                      className="rounded-tile border border-hairline bg-surface-raised px-3.5 py-2 hover:border-hairline-strong"
+                    >
+                      {t("o.site")} ↗
+                    </Link>
+                  )}
+                  <Link
+                    href={`/owner/bookings?salon=${site.slug}`}
+                    className="rounded-tile border border-hairline bg-surface-raised px-3.5 py-2 hover:border-hairline-strong"
+                  >
+                    {t("ob.open")}
+                  </Link>
+                  <Link
+                    href={`/builder/${site.slug}`}
+                    className="glaze-brand rounded-tile px-3.5 py-2 text-brand-ink hover:bg-brand-strong"
+                  >
+                    {t("o.open")} →
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="mt-5 rounded-card border border-dashed border-hairline-strong px-5 py-10 text-center">
+            <p className="mx-auto max-w-[46ch] text-[14px] leading-relaxed text-ink-muted">{t("o.noSites")}</p>
+            <Link
+              href="/start"
+              className="glaze-brand mt-5 inline-flex rounded-tile px-5 py-2.5 text-[14px] font-semibold text-brand-ink hover:bg-brand-strong"
             >
-              {t("o.logout")}
-            </button>
-          </>
+              {t("s.newBusiness")}
+            </Link>
+          </div>
         )}
+      </section>
 
-        {error && (
-          <p role="status" className="mt-4 text-[13px] leading-snug text-accent">
-            {error}
-          </p>
-        )}
-      </main>
-    </div>
+      <section className="mt-6 rounded-sheet bg-navy p-6 text-white sm:p-7">
+        <p className="text-[12px] font-semibold tracking-[0.08em] text-coral uppercase">{t("o.tgEyebrow")}</p>
+        <h2 className="mt-2 text-[20px] font-semibold tracking-[-0.02em]">{t("o.tgTitle")}</h2>
+        <p className="mt-2 max-w-[60ch] text-[14px] leading-relaxed text-white/75">{t("o.tgText")}</p>
+      </section>
+
+      {error && (
+        <p role="status" className="mt-4 text-[14px] leading-snug font-medium text-accent">
+          {error}
+        </p>
+      )}
+
+      <button
+        type="button"
+        onClick={() => void logout()}
+        className="mt-8 text-[14px] font-medium text-ink-muted hover:text-ink lg:hidden"
+      >
+        {t("o.logout")}
+      </button>
+    </AppShell>
   );
 }

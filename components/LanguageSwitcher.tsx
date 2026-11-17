@@ -39,7 +39,7 @@ export function LanguageSwitcher() {
             className={cx(
               "rounded-full px-3 py-1.5 text-[12px] font-semibold transition-colors duration-150",
               active
-                ? "bg-surface-raised text-ink shadow-[0_1px_3px_rgba(15,46,44,0.14)]"
+                ? "bg-surface-raised text-brand shadow-[0_1px_3px_rgba(11,28,48,0.12)]"
                 : "text-ink-muted",
             )}
           >

@@ -101,10 +101,13 @@ button,
   touch-action: manipulation;
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-lapis);
-  outline-offset: 2px;
-  border-radius: 2px;
+/* In the base layer, so a component's own outline-none (a field that draws
+   its focus ring on its wrapper) wins over this default. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-lapis);
+    outline-offset: 2px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

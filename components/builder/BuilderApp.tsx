@@ -7,6 +7,7 @@ import { ContentEditor } from "@/components/builder/ContentEditor";
 import { SharePanel } from "@/components/builder/SharePanel";
 import { TenantSite } from "@/components/tma/TenantSite";
 import { Button } from "@/components/ui/Button";
+import { VortalyMark } from "@/components/ui/VortalyMark";
 import {
   aiEdit,
   fetchAiStatus,
@@ -351,20 +352,23 @@ export function BuilderApp({ slug }: { slug: string }) {
     saveStatus !== "saved" || JSON.stringify(serverDraft) !== JSON.stringify(published);
 
   return (
-    <div className="flex min-h-screen flex-col bg-surface-sunken lg:h-dvh lg:overflow-hidden">
-      <header className="flex flex-none flex-wrap items-center gap-x-4 gap-y-2 border-b border-hairline bg-surface px-4 py-2.5 lg:px-5">
+    <div className="flex min-h-screen flex-col bg-surface lg:h-dvh lg:overflow-hidden">
+      <header className="flex flex-none flex-wrap items-center gap-x-4 gap-y-2 border-b border-hairline bg-surface-raised px-4 py-3 lg:px-6">
         <Link
           href={viewer === "owner" ? "/owner" : "/"}
-          className="text-[12px] font-semibold text-ink-muted hover:text-ink"
+          aria-label={viewer === "owner" ? t("o.myBusinesses") : t("b.back")}
+          className="flex items-center gap-2 rounded-tile py-1 pr-2 text-[13px] font-semibold text-ink-muted hover:text-ink"
         >
-          ← {viewer === "owner" ? t("o.myBusinesses") : t("b.back")}
+          <VortalyMark size={30} />
+          <span className="hidden sm:inline">← {viewer === "owner" ? t("o.myBusinesses") : t("b.back")}</span>
         </Link>
+        <span aria-hidden className="hidden h-6 w-px bg-hairline sm:block" />
 
         <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-[16px] leading-tight font-bold tracking-[-0.02em]">
+          <p className="truncate font-display text-[17px] leading-tight font-semibold tracking-[-0.02em]">
             {spec.name}
           </p>
-          <p className="truncate font-mono text-[11px] text-ink-muted">
+          <p className="truncate text-[12px] text-ink-muted tabular-nums">
             {siteHost ? `${siteHost}/${slug}` : `/${slug}`}
           </p>
         </div>
@@ -399,7 +403,7 @@ export function BuilderApp({ slug }: { slug: string }) {
             type="button"
             disabled={inviting}
             onClick={() => void invite()}
-            className="rounded-card border border-hairline bg-surface-raised px-2.5 py-1.5 text-[12px] font-semibold disabled:opacity-45"
+            className="rounded-tile border border-hairline bg-surface-raised px-3 py-2 text-[13px] font-semibold hover:border-hairline-strong disabled:opacity-45"
           >
             {t("o.invite")}
           </button>
@@ -409,7 +413,7 @@ export function BuilderApp({ slug }: { slug: string }) {
           <button
             type="button"
             onClick={() => setSharing((open) => !open)}
-            className="rounded-card border border-hairline bg-surface-raised px-2.5 py-1.5 text-[12px] font-semibold"
+            className="rounded-tile border border-hairline bg-surface-raised px-3 py-2 text-[13px] font-semibold hover:border-hairline-strong"
           >
             {t("share.button")}
           </button>
@@ -419,7 +423,7 @@ export function BuilderApp({ slug }: { slug: string }) {
           <Link
             href={`/${slug}`}
             target="_blank"
-            className="rounded-card border border-hairline bg-surface-raised px-2.5 py-1.5 text-[12px] font-semibold"
+            className="rounded-tile border border-hairline bg-surface-raised px-3 py-2 text-[13px] font-semibold hover:border-hairline-strong"
           >
             {t("b.openSite")}
           </Link>
