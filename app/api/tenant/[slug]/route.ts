@@ -9,7 +9,6 @@ import {
   validateSlug,
   isNetworkError,
 } from "@/lib/supabase/salons";
-import type { SalonRecord } from "@/lib/supabase/salons";
 
 /**
  * Public tenant-resolution endpoint.

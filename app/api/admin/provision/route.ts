@@ -1,7 +1,6 @@
 import {
   createSalon,
   findSalonBySlug,
-  isNetworkError,
   slugFor,
   type FindSalonResult,
 } from "@/lib/supabase/salons";

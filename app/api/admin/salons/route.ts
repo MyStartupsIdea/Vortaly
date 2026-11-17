@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSalon, type SalonRecord, isNetworkError, validateSlug } from "@/lib/supabase/salons";
 import { getSupabaseServer } from "@/lib/supabase/server";
 import { tenantHost, tenantUrl } from "@/lib/domain/config";
-import { adminAuthorized, adminConfigured } from "@/lib/domain/admin-auth";
+import { adminAuthorized } from "@/lib/domain/admin-auth";
 
 /**
  * Platform-admin endpoint for tenant (salon) lifecycle.

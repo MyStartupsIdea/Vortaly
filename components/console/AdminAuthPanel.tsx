@@ -17,7 +17,7 @@ interface Props {
 }
 
 export function AdminAuthPanel({ status, warning, onContinueDemo, onRetry, children }: Props) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
 
   if (status === "loading") return null;
 

@@ -151,6 +151,9 @@ type StepIndex = 1 | 2 | 3 | 4;
  * `preview` is the builder's live preview: everything is interactive except
  * the final submit, which must not create bookings for an unpublished draft.
  */
+/** Nothing is taken in a preview or before a day is chosen; one stable empty list. */
+const NO_TAKEN: BusySpan[] = [];
+
 export function MiniApp({ preview = false }: { preview?: boolean } = {}) {
   const router = useRouter();
   const { draft, setField, setTime, resetDraft, hydrated } = useBooking();
@@ -162,7 +165,7 @@ export function MiniApp({ preview = false }: { preview?: boolean } = {}) {
 
   const [open, setOpen] = useState(1);
   /** Other customers' appointments on the chosen day, from the server. */
-  const [taken, setTaken] = useState<BusySpan[]>([]);
+  const [takenFetched, setTaken] = useState<BusySpan[]>([]);
   /** A generated tenant confirms in place; it has no /bookings list of its own. */
   const [confirmed, setConfirmed] = useState<{
     date: string;
@@ -186,10 +189,7 @@ export function MiniApp({ preview = false }: { preview?: boolean } = {}) {
   /* Slots other people already took. Failing to learn them is not fatal: the
      server still refuses a double booking, the grid is just less informed. */
   useEffect(() => {
-    if (preview || !draft.date) {
-      setTaken([]);
-      return;
-    }
+    if (preview || !draft.date) return;
     let cancelled = false;
     fetch(`/api/bookings/busy?date=${draft.date}`, {
       headers: { "X-Vortaly-Tenant": catalog.slug },
@@ -206,6 +206,7 @@ export function MiniApp({ preview = false }: { preview?: boolean } = {}) {
       cancelled = true;
     };
   }, [preview, draft.date, catalog.slug]);
+  const taken = preview || !draft.date ? NO_TAKEN : takenFetched;
   const [sending, setSending] = useState(false);
   /* A refused attempt explains itself in two short lines. The server's own
      text is never quoted: it is machinery, and the customer needs to know

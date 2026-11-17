@@ -38,7 +38,7 @@ npm run dev          # http://localhost:3000
 ```
 
 Остальные команды: `npm run build`, `npm start`, `npm run typecheck`,
-`npm test`.
+`npm run lint`, `npm test`.
 
 Локальный запуск без доступа к боевому Supabase: `node .claude/dev-local.mjs`
 (порт 3100). Лаунчер обнуляет ключи Supabase, Telegram и оплаты, подставляет

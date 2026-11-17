@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useReducer, useState } from "react";
 import { AdminSection } from "@/components/admin/AdminStates";
 import { BookingFilters } from "@/components/admin/BookingFilters";
 import { BookingsTable } from "@/components/admin/BookingsTable";
@@ -13,6 +13,7 @@ import {
   createBooking,
   cancelBooking,
   deleteBooking,
+  updateBooking,
   originCounts,
   paginate,
 } from "@/lib/data/bookings";
@@ -50,10 +51,12 @@ export default function AdminPage() {
   const { locale, t } = useI18n();
   const [statusFilter, setStatusFilter] = useState<BookingStatus | "all">("all");
   const [page, setPage] = useState(1);
-  const [dateFrom, setDateFrom] = useState<string | null>(null);
-  const [dateTo, setDateTo] = useState<string | null>(null);
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [paidId, setPaidId] = useState<string | null>(null);
+  // Date range filter: wired into the list, no picker in the UI yet.
+  const [dateFrom] = useState<string | null>(null);
+  const [dateTo] = useState<string | null>(null);
+  // The store lives outside React: bump this after every mutation so the
+  // table re-reads it even when no other state changes (e.g. already on page 1).
+  const [, storeChanged] = useReducer((n: number) => n + 1, 0);
   const [savingService, setSavingService] = useState<string | null>(null);
   /** Hides everything the server has not confirmed. Off by default so the
       table is never silently incomplete, but one click away. */
@@ -163,6 +166,7 @@ export default function AdminPage() {
                   "local",
                 );
                 setPage(1);
+                storeChanged();
               }}
             >
               {t("admin.demoBooking")}
@@ -207,15 +211,23 @@ export default function AdminPage() {
           totalPages={totalPages}
           onPrevPage={() => setPage((p) => Math.max(1, p - 1))}
           onNextPage={() => setPage((p) => Math.min(totalPages, p + 1))}
-          onConfirm={(id) => setConfirmingId(id)}
-          onMarkPaid={(id) => setPaidId(id)}
+          onConfirm={(id) => {
+            updateBooking(id, { status: "confirmed" });
+            storeChanged();
+          }}
+          onMarkPaid={(id) => {
+            updateBooking(id, { status: "paid" });
+            storeChanged();
+          }}
           onCancel={(id) => {
             cancelBooking(id);
             setPage(1);
+            storeChanged();
           }}
           onDelete={(id) => {
             deleteBooking(id);
             setPage(1);
+            storeChanged();
           }}
         />
       </AdminSection>

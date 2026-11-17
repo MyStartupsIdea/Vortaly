@@ -161,7 +161,7 @@ export function readCookie(request: Request, name: string): string | undefined {
 }
 
 /** Returns true when the platform has any admin secret configured. */
-export function adminConfigured(request: Request = new Request("")): boolean {
+export function adminConfigured(_request: Request = new Request("")): boolean {
   return configuredSecret() !== null;
 }
 

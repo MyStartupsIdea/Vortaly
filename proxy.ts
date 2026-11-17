@@ -7,7 +7,7 @@ import {
   isValidSlug,
   type SalonRecord,
 } from "@/lib/supabase/salons";
-import { ROOT_DOMAIN, TENANT_SUBDOMAINS_ENABLED, TENANT_SUFFIX } from "@/lib/domain/config";
+import { TENANT_SUBDOMAINS_ENABLED, TENANT_SUFFIX } from "@/lib/domain/config";
 
 /**
  * Multi-tenant subdomain proxy (Next 16 renamed middleware.ts -> proxy.ts).
@@ -44,8 +44,6 @@ import { ROOT_DOMAIN, TENANT_SUBDOMAINS_ENABLED, TENANT_SUFFIX } from "@/lib/dom
  * Information disclosure: we pass only tenant id and tenant type. We do not send
  * the full tenant profile (name, phone, etc.) in request headers.
  */
-
-const PLATFORM_HOST = ROOT_DOMAIN;
 
 export async function proxy(request: NextRequest) {
   const host = request.headers.get("host") ?? "";
@@ -136,7 +134,7 @@ export async function proxy(request: NextRequest) {
   let downstreamHeaders: Headers;
   try {
     downstreamHeaders = new Headers(request.headers);
-  } catch (err) {
+  } catch {
     // Fallback: if the incoming headers object is not a real `Headers` instance,
     // start from an empty headers bag and re-add only what is needed. We keep the
     // fallback minimal because in that case even the core headers may differ.

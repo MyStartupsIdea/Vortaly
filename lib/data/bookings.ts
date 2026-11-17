@@ -1,4 +1,4 @@
-import type { Booking, BookingStatus } from "@/lib/types";
+import type { Booking } from "@/lib/types";
 import { totalFor } from "@/lib/data/salon";
 
 const STORAGE_KEY = "vortaly:admin:bookings";

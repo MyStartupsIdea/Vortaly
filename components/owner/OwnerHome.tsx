@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -61,6 +62,7 @@ export function OwnerHome() {
   const [view, setView] = useState<OwnerView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const widget = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   /** Signed in: claim a pending invite, or go back where the owner came from. */
   const afterSignIn = useCallback(
@@ -72,21 +74,21 @@ export function OwnerHome() {
         // The invite is spent either way; keep it out of history and reloads.
         window.history.replaceState(null, "", "/owner");
         if (result.ok) {
-          window.location.assign(`/builder/${result.slug}`);
+          router.push(`/builder/${result.slug}`);
           return;
         }
         setError(t(CLAIM_ERROR[result.reason]));
       } else {
         const next = safeNext();
         if (next && current.sites.some((site) => `/builder/${site.slug}` === next)) {
-          window.location.assign(next);
+          router.push(next);
           return;
         }
       }
       setView(current);
       setPhase("ready");
     },
-    [t],
+    [router, t],
   );
 
   const login = useCallback(
