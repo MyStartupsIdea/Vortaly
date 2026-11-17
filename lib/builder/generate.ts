@@ -1,6 +1,7 @@
 import "server-only";
 
 import { AiError, chatJson, type AiFailureCode, type OwnKey } from "@/lib/ai/llm";
+import { stripUnbackedClaims } from "@/lib/builder/claims";
 import {
   applyOps,
   sanitizeSpec,
@@ -25,6 +26,8 @@ const SHARED_RULES = [
   "Every text is bilingual: {\"ru\": Russian, \"uz\": Uzbek in LATIN script (use oʻ and gʻ)}. Both must be filled and say the same thing.",
   "Prices are whole Uzbek sums (UZS), realistic for Tashkent, rounded to thousands.",
   "Never invent reviews, ratings, awards, years of experience, addresses or people's names. If the brief does not state an address, leave it empty.",
+  "Never praise the business with claims the brief does not make: no 'experienced', 'professional', 'the best', 'guaranteed', 'high quality', 'certified' or their Uzbek equivalents unless the brief says so. Describe what the business does and offers, not how good it is.",
+  "highlights are concrete facts from the brief (a free trial lesson, open on Sundays, two bays, near a metro station), never compliments.",
   "Staff are the bookable resources (masters, wash bays, tables). Use a person's name only if the brief gives it; otherwise leave \"name\" empty.",
   `"theme" is one of: ${THEME_IDS.join(", ")}.`,
   "Times are \"HH:MM\" on the half hour. Workdays are ISO numbers, 1 = Monday … 7 = Sunday.",
@@ -110,7 +113,8 @@ export async function generateSpec(input: GenerateInput): Promise<GenerateResult
 
     // name / phone / slug / kind are stripped: they are the operator's.
     const { name: _n, phone: _p, slug: _s, kind: _k, ...content } = data;
-    const spec = sanitizeSpec(content, base);
+    // Models praise anyway; a claim the owner did not make is removed in code.
+    const spec = stripUnbackedClaims(sanitizeSpec(content, base), input.brief);
 
     // An answer that sanitized down to nothing sellable is not a site.
     if (spec.items.length < 2) {
