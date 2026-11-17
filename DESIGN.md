@@ -1,4 +1,4 @@
-# Vortaly — design system: "Lapis"
+# Vortaly — design system: "Kinetic canvas"
 
 Replaces the earlier "majolica" world (turquoise glaze, Unbounded) for
 Vortaly's own surfaces. Business sites keep their six themes: they are the
@@ -19,22 +19,26 @@ from the one colour that is allowed to speak.
 
 Tokens live in `app/globals.css` (`@theme`), redefined for dark mode.
 
-**No grey, anywhere** (owner's rule). Every neutral is tinted lapis; dark
-mode is deep lapis, never black.
+Based on the owner's Stitch design ("Kinetic canvas"). No flat grey: every
+neutral is cool and blue-tinted. Dark mode is deep navy.
 
 | Token | Light | Dark | Use |
 | --- | --- | --- | --- |
-| `surface` | `#F3F6FF` | `#071233` | page ground |
-| `surface-raised` | `#FFFFFF` | `#0E1C4A` | cards, forms, sheets |
-| `surface-sunken` | `#E4EBFF` | `#050C24` | chips, wells, secondary buttons |
-| `ink` | `#0A1A4A` | `#EEF3FF` | text |
-| `ink-muted` | `#3B56A3` | `#A3B8F7` | secondary text |
-| `hairline` | lapis at 16% | lapis at 20% | field borders only |
-| `brand` | `#1D4ED8` | `#5B82FF` | primary action, the lapis field on /start |
-| `brand-ink` | `#FFFFFF` | `#FFFFFF` | text on brand |
-| `lapis` | `#1D4ED8` | `#8AA6FF` | focus ring, links, the mark |
-| `accent` | `#D92D20` | `#FF6B5B` | errors and destructive actions only |
-| `saffron` | `#B86E00` | `#F5B83D` | warnings, "waiting" status |
+| `surface` | `#F8F9FF` | `#0A1526` | canvas |
+| `surface-raised` | `#FFFFFF` | `#111F36` | cards, inputs, sheets |
+| `surface-sunken` | `#EFF4FF` | `#0D1A2F` | chips, troughs |
+| `ink` | `#0B1C30` | `#EAF1FF` | text |
+| `ink-muted` | `#4A5A78` | `#9FB0D0` | secondary text |
+| `hairline` / `-strong` | `#DFE6F3` / `#C3CEE3` | `#1F3150` / `#2D4268` | 1px borders |
+| `brand` / `-strong` / `-tint` | `#1D4ED8` / `#1E40AF` / `#EFF6FF` | `#4F7CFF` | primary action, selection |
+| `coral` / `-tint` | `#EA580C` / `#FFF7ED` | `#FF8A4C` | AI actions only |
+| `accent` | `#DC2626` | `#FF6B5B` | errors |
+| `saffron` | `#D97706` | `#F5B83D` | warnings, "waiting" |
+| `navy` | `#0B1C30` | `#06101F` | deep headers |
+
+Type: Onest for headings (Outfit from the Stitch file has no Cyrillic),
+Manrope for UI and text. Radii: 10 px controls and buttons, 12 px cards,
+16 px sheets. Cards: white, 1px border, ambient shadow.
 
 Rules: lapis appears at most once or twice per screen. Red means "something
 is wrong or will be destroyed", never decoration. Status pills are tinted
@@ -57,7 +61,7 @@ both `--font-sans` and `--font-display`.
   (`radius-card`), sheets and phone frames 20 px (`radius-sheet`).
 - Depth is a 1 px hairline and a change of surface. Shadows only on things
   that float (a phone preview, a popover): one soft, low-opacity shadow.
-- Buttons are fully round pills: primary solid lapis, secondary a sunken lapis wash.
+- Buttons: 10 px radius. Primary cobalt, secondary white with a 1px border, ghost text.
 
 ## Space
 

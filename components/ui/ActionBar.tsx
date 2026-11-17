@@ -12,7 +12,7 @@ import type { ReactNode } from "react";
  */
 export function ActionBar({ children }: { children: ReactNode }) {
   return (
-    <div className="sticky bottom-0 z-20 mt-8 border-t border-hairline bg-surface/85 px-4 pt-3 pb-safe backdrop-blur-md">
+    <div className="sticky bottom-0 z-20 mt-6 border-t border-hairline bg-surface-raised px-4 pt-3 pb-safe">
       {children}
     </div>
   );

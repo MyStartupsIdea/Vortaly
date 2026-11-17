@@ -1,57 +1,69 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Vortaly — "lapis" (see DESIGN.md).
-   No grey anywhere: white and pale lapis grounds, deep lapis ink, a vivid
-   lapis action. Red only for errors. Business sites override --color-brand
-   and --color-accent with their own theme (themeStyle).
+   Vortaly — "Kinetic canvas" (see DESIGN.md), from the Stitch design.
+   Cool canvas, white cards with a crisp 1px border, cobalt action, deep navy
+   headers. Neutrals are cool and blue-tinted, never a flat grey. Business
+   sites override --color-brand and --color-accent with their own theme.
 --------------------------------------------------------------------------- */
 
 @theme {
-  --color-surface: #f3f6ff;
+  --color-surface: #f8f9ff;
   --color-surface-raised: #ffffff;
-  --color-surface-sunken: #e4ebff;
+  --color-surface-sunken: #eff4ff;
   --color-tile: #ffffff;
-  --color-tile-taken: #dbe4fb;
-  --color-ink: #0a1a4a;
-  --color-ink-muted: #3b56a3;
-  --color-hairline: rgba(29, 78, 216, 0.16);
+  --color-tile-taken: #eef2fb;
+  --color-ink: #0b1c30;
+  --color-ink-muted: #4a5a78;
+  --color-hairline: #dfe6f3;
+  --color-hairline-strong: #c3cee3;
   --color-brand: #1d4ed8;
+  --color-brand-strong: #1e40af;
+  --color-brand-tint: #eff6ff;
   --color-brand-ink: #ffffff;
-  --color-accent: #d92d20;
+  --color-accent: #dc2626;
   --color-lapis: #1d4ed8;
-  --color-saffron: #b86e00;
+  --color-coral: #ea580c;
+  --color-coral-tint: #fff7ed;
+  --color-saffron: #d97706;
+  --color-navy: #0b1c30;
 
-  /* The console's terminal: a fixed deep-lapis panel in both modes. */
-  --color-petrol: #0a1a4a;
-  --color-porcelain: #f3f6ff;
+  /* The console's terminal: a fixed navy panel in both modes. */
+  --color-petrol: #0b1c30;
+  --color-porcelain: #f8f9ff;
   /* Kept for the business sites' palettes and older references. */
   --color-turquoise: #0e7c86;
   --color-pomegranate: #b2322b;
 
   --radius-tile: 0.625rem;
-  --radius-card: 1rem;
-  --radius-sheet: 1.5rem;
+  --radius-card: 0.75rem;
+  --radius-sheet: 1rem;
 
   --font-display: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
-  --font-sans: var(--font-onest), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --color-surface: #071233;
-    --color-surface-raised: #0e1c4a;
-    --color-surface-sunken: #050c24;
-    --color-tile: #12235c;
-    --color-tile-taken: #0a1640;
-    --color-ink: #eef3ff;
-    --color-ink-muted: #a3b8f7;
-    --color-hairline: rgba(163, 184, 247, 0.2);
-    --color-brand: #5b82ff;
+    --color-surface: #0a1526;
+    --color-surface-raised: #111f36;
+    --color-surface-sunken: #0d1a2f;
+    --color-tile: #142441;
+    --color-tile-taken: #0e1b31;
+    --color-ink: #eaf1ff;
+    --color-ink-muted: #9fb0d0;
+    --color-hairline: #1f3150;
+    --color-hairline-strong: #2d4268;
+    --color-brand: #4f7cff;
+    --color-brand-strong: #3d6bf0;
+    --color-brand-tint: #15264a;
     --color-brand-ink: #ffffff;
     --color-accent: #ff6b5b;
-    --color-lapis: #8aa6ff;
+    --color-lapis: #7f9fff;
+    --color-coral: #ff8a4c;
+    --color-coral-tint: #2b1a12;
     --color-saffron: #f5b83d;
+    --color-navy: #06101f;
   }
 }
 
@@ -75,6 +87,7 @@ body {
 h1,
 h2,
 h3 {
+  font-family: var(--font-display);
   letter-spacing: -0.02em;
 }
 
@@ -107,11 +120,13 @@ button,
 
 /* ------------------------------------------------------------- utilities --- */
 
-/* Surfaces are flat: a tile is a raised face with a hairline, nothing more.
-   The names stay so components keep working across the redesign. */
+/* A card or tile: white, a crisp 1px border, an ambient lift (Stitch level 1). */
 @utility glaze {
   background-color: var(--color-tile);
-  box-shadow: inset 0 0 0 1px var(--color-hairline);
+  box-shadow:
+    inset 0 0 0 1px var(--color-hairline),
+    0 1px 3px 0 rgb(11 28 48 / 0.04),
+    0 1px 2px -1px rgb(11 28 48 / 0.03);
 }
 
 /* A taken slot: sunken and quiet. */
@@ -124,16 +139,16 @@ button,
   background-color: var(--color-accent);
 }
 
-/* The primary action: solid brand (ink on Vortaly, theme colour on a site). */
+/* The primary action: solid brand (cobalt on Vortaly, theme colour on a site). */
 @utility glaze-brand {
   background-color: var(--color-brand);
 }
 
-/* The only shadow: for things that float above the page. */
+/* Popovers, sheets, the phone frame (Stitch level 2). */
 @utility float {
   box-shadow:
-    0 1px 2px rgb(10 26 74 / 0.06),
-    0 24px 48px -20px rgb(29 78 216 / 0.35);
+    0 10px 25px -5px rgb(11 28 48 / 0.08),
+    0 8px 10px -6px rgb(11 28 48 / 0.05);
 }
 
 @utility hairline-y {

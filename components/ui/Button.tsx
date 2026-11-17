@@ -15,20 +15,20 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const BASE =
-  "inline-flex items-center justify-center gap-2 font-semibold transition-[transform,opacity,background-color] duration-150 active:scale-[0.985] disabled:pointer-events-none disabled:opacity-45";
+  "inline-flex items-center justify-center gap-2 font-semibold transition-[transform,opacity,background-color] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45";
 
 const SIZES: Record<Size, string> = {
   sm: "text-[12px] px-2.5 py-1.5",
-  md: "text-[15px] px-5 py-3.5",
+  md: "text-[15px] px-5 py-3",
 };
 
 /* One radius for every button; weight comes from fill, not shape. */
 const VARIANTS: Record<Variant, string> = {
-  primary: "glaze-brand text-brand-ink rounded-full hover:brightness-110",
+  primary: "glaze-brand text-brand-ink rounded-tile hover:bg-brand-strong",
   secondary:
-    "rounded-full bg-surface-sunken text-ink hover:bg-brand hover:text-brand-ink",
+    "rounded-tile border border-hairline bg-surface-raised text-ink hover:border-hairline-strong hover:bg-surface",
   ghost:
-    "rounded-full text-brand hover:bg-surface-sunken",
+    "rounded-tile text-ink-muted hover:bg-surface-sunken hover:text-ink",
 };
 
 export function Button({

@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Onest } from "next/font/google";
+import { Manrope, Onest } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
 import { LocaleProvider } from "@/lib/i18n/context";
@@ -7,10 +7,16 @@ import { I18nProvider } from "@/lib/i18n/provider";
 import { TelegramProvider } from "@/lib/telegram-provider";
 import { BookingProvider } from "@/lib/booking/store";
 
-/** One family for everything: display and UI (see DESIGN.md). */
+/** Onest for headings, Manrope for UI and text (see DESIGN.md). Both carry Cyrillic. */
 const onest = Onest({
   subsets: ["latin", "latin-ext", "cyrillic"],
   variable: "--font-onest",
+  display: "swap",
+});
+
+const manrope = Manrope({
+  subsets: ["latin", "latin-ext", "cyrillic"],
+  variable: "--font-manrope",
   display: "swap",
 });
 
@@ -30,14 +36,14 @@ export const viewport: Viewport = {
   userScalable: false,
   interactiveWidget: "resizes-content",
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f3f6ff" },
-    { media: "(prefers-color-scheme: dark)", color: "#071233" },
+    { media: "(prefers-color-scheme: light)", color: "#f8f9ff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a1526" },
   ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ru" className={onest.variable}>
+    <html lang="ru" className={`${onest.variable} ${manrope.variable}`}>
       <head>
         {/* Must run before hydration so window.Telegram exists on first render. */}
         <Script src="https://telegram.org/js/telegram-web-app.js" strategy="beforeInteractive" />

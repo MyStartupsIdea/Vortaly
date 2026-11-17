@@ -22,19 +22,19 @@ export function SiteIntro() {
   if (!about && highlights.length === 0 && site.showcase.length === 0) return null;
 
   return (
-    <div className="border-b border-hairline">
+    <div>
       {about && (
         <p className="px-5 pt-5 text-[15px] leading-relaxed text-ink">{about}</p>
       )}
 
       {highlights.length > 0 && (
-        <ul className="grid grid-cols-2 gap-1.5 px-5 pt-4">
+        <ul className="flex flex-wrap gap-2 px-5 pt-4">
           {highlights.map((text, i) => (
             <li
               key={i}
-              className="glaze flex items-start gap-2 rounded-tile border border-hairline px-3 py-2.5 text-[13px] leading-snug font-semibold"
+              className="glaze flex items-center gap-2 rounded-full px-3 py-1.5 text-[13px] leading-snug font-medium"
             >
-              <span aria-hidden className="mt-[5px] size-1.5 flex-none rounded-full bg-brand" />
+              <span aria-hidden className="size-1.5 flex-none rounded-full bg-brand" />
               <span className="min-w-0">{text}</span>
             </li>
           ))}
@@ -43,14 +43,14 @@ export function SiteIntro() {
 
       {site.showcase.map((section, i) => (
         <section key={i} className="pt-5">
-          <h2 className="px-5 font-display text-[13px] font-semibold tracking-[0.01em] text-ink-muted">
+          <h2 className="px-5 font-display text-[16px] font-semibold">
             {tr(section.title)}
           </h2>
-          <ul className="mt-1">
+          <ul className="glaze mx-4 mt-2 rounded-card px-4">
             {section.items.map((item) => (
               <li
                 key={item.id}
-                className="mx-5 flex items-baseline justify-between gap-4 border-b border-hairline py-3 last:border-b-0"
+                className="flex items-baseline justify-between gap-4 border-b border-hairline py-3 last:border-b-0"
               >
                 <span className="min-w-0">
                   <span className="block text-[15px] font-semibold">{tr(item.title)}</span>
@@ -71,7 +71,7 @@ export function SiteIntro() {
         </section>
       ))}
 
-      <div className="h-5" />
+      <div className="h-2" />
     </div>
   );
 }

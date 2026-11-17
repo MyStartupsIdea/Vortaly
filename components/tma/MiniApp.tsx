@@ -66,9 +66,9 @@ function Section({
   return (
     <section
       className={cx(
-        "border-b border-hairline",
-        open && "bg-surface-raised/40",
-        !enabled && "opacity-45",
+        "glaze mx-4 mt-3 rounded-card transition-shadow duration-150",
+        open && "shadow-[inset_0_0_0_2px_var(--color-brand)]",
+        !enabled && "opacity-50",
       )}
     >
       <h2>
@@ -77,18 +77,16 @@ function Section({
           disabled={!enabled}
           aria-expanded={open}
           onClick={onToggle}
-          className="flex w-full items-center gap-3 px-5 py-4 text-left"
+          className="flex w-full items-center gap-3 px-4 py-4 text-left"
         >
           {/* Numbered because booking really is a sequence, not decoration. */}
           <span
             aria-hidden
             className={cx(
-              "grid size-7 flex-none place-items-center rounded-tile font-display text-[13px] font-bold tabular-nums",
-              done
+              "grid size-7 flex-none place-items-center rounded-full font-display text-[13px] font-semibold tabular-nums",
+              done || open
                 ? "glaze-brand text-brand-ink"
-                : open
-                  ? "glaze border border-brand text-ink"
-                  : "glaze border border-hairline text-ink-muted",
+                : "bg-surface-sunken text-ink-muted",
             )}
           >
             {done ? (
@@ -106,7 +104,7 @@ function Section({
           </span>
 
           <span className="min-w-0 flex-1">
-            <span className="block font-display text-[15px] font-bold tracking-[-0.01em]">
+            <span className="block font-display text-[15px] font-semibold tracking-[-0.01em]">
               {title}
             </span>
             {!open && (
@@ -128,7 +126,7 @@ function Section({
         </button>
       </h2>
 
-      {open && <div className="pb-5">{children}</div>}
+      {open && <div className="pb-4">{children}</div>}
     </section>
   );
 }
@@ -471,7 +469,7 @@ export function MiniApp({ preview = false }: { preview?: boolean } = {}) {
       {catalog.legacy && activeCount > 0 && (
         <Link
           href="/bookings"
-          className="flex items-center justify-between gap-3 border-b border-hairline bg-surface-raised px-5 py-3 text-[14px]"
+          className="glaze mx-4 mt-3 flex items-center justify-between gap-3 rounded-card px-4 py-3 text-[14px]"
         >
           <span className="font-semibold">{t("nav.bookings")}</span>
           <span className="flex items-center gap-2 text-ink-muted">
@@ -487,7 +485,7 @@ export function MiniApp({ preview = false }: { preview?: boolean } = {}) {
 
       <div className="flex-1">
         {catalog.site && (
-          <h2 className="px-5 pt-6 pb-2 font-display text-[19px] font-bold tracking-[-0.02em]">
+          <h2 className="px-5 pt-6 pb-1 font-display text-[19px] font-semibold tracking-[-0.02em]">
             {t("site.bookOnline")}
           </h2>
         )}
@@ -547,7 +545,7 @@ export function MiniApp({ preview = false }: { preview?: boolean } = {}) {
           enabled={enabled(4)}
           onToggle={toggle(4)}
         >
-          <div className="space-y-4 px-5">
+          <div className="space-y-4 px-4">
             <label className="block">
               <span className="block text-[13px] text-ink-muted">{t("confirm.name")}</span>
               <input
@@ -555,7 +553,7 @@ export function MiniApp({ preview = false }: { preview?: boolean } = {}) {
                 onChange={(e) => setField("name", e.target.value)}
                 placeholder={t("confirm.namePlaceholder")}
                 autoComplete="name"
-                className="mt-1.5 w-full rounded-card border border-hairline bg-surface-raised px-4 py-3 text-[16px] outline-none placeholder:text-ink-muted/60 focus:border-brand"
+                className="mt-1.5 w-full rounded-tile border border-hairline bg-surface-raised px-3.5 py-3 text-[16px] outline-none placeholder:text-ink-muted/70 focus:border-brand focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-brand)_12%,transparent)]"
               />
             </label>
 
@@ -563,7 +561,7 @@ export function MiniApp({ preview = false }: { preview?: boolean } = {}) {
               <span className="block text-[13px] text-ink-muted">{t("confirm.phone")}</span>
               {/* The country code is fixed rather than typed: every customer
                   here is on +998, and a prefix cannot be fat-fingered. */}
-              <span className="mt-1.5 flex items-center rounded-card border border-hairline bg-surface-raised focus-within:border-brand">
+              <span className="mt-1.5 flex items-center rounded-tile border border-hairline bg-surface-raised focus-within:border-brand focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--color-brand)_12%,transparent)]">
                 <span className="pl-4 text-[16px] font-semibold text-ink-muted tabular-nums">
                   +998
                 </span>
@@ -632,22 +630,21 @@ export function MiniApp({ preview = false }: { preview?: boolean } = {}) {
       </div>
 
       <ActionBar>
+        <div className="flex items-center gap-3">
         {done[1] && (
-          <div className="mb-2 flex items-baseline justify-between gap-3 text-[13px]">
-            <span className="text-ink-muted">
-              {t("action.selected", { count: draft.serviceIds.length })}
-            </span>
-            <span className="font-semibold tabular-nums">
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-[18px] leading-tight font-semibold tabular-nums">
               {total.sum > 0 ? formatSum(total.sum, locale) : t("site.free")}
-              <span className="ml-2 font-normal text-ink-muted">
-                {formatDuration(total.minutes, locale)}
-              </span>
-            </span>
+            </p>
+            <p className="truncate text-[12px] text-ink-muted">
+              {t("action.selected", { count: draft.serviceIds.length })} · {formatDuration(total.minutes, locale)}
+            </p>
           </div>
         )}
 
         <Button
-          block
+          block={!done[1]}
+          className={done[1] ? "max-w-[60%] flex-none" : undefined}
           disabled={sending}
           onClick={() => {
             if (ready) {
@@ -659,8 +656,9 @@ export function MiniApp({ preview = false }: { preview?: boolean } = {}) {
             haptic("press");
           }}
         >
-          {actionLabel}
+          <span className="truncate">{actionLabel}</span>
         </Button>
+        </div>
       </ActionBar>
     </main>
   );
